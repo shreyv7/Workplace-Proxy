@@ -1,0 +1,105 @@
+﻿Google Agent Labs Hackathon 2026
+Build Intelligent AI Agents with Google ADK, Qdrant & Lyzr
+Overview
+The Google Agent Labs Hackathon 2026 is a hands-on AI Agent building challenge designed for students, developers, innovators, and AI enthusiasts who want to explore the future of Agentic AI.
+Participants will learn how to build intelligent AI agents powered by Google's Agent Development Kit (ADK), Qdrant's vector memory infrastructure, and Lyzr's agent orchestration capabilities. The hackathon focuses on real-world problem solving through autonomous agents capable of reasoning, memory management, retrieval, automation, and workflow execution.
+The event begins with a live workshop where participants will learn the fundamentals of building AI agents and then immediately start building their solutions during the hackathon phase.
+Whether you are new to AI Agents or already building advanced agentic systems, this hackathon provides an opportunity to learn, build, network, and compete.
+Theme
+Building the Future of AI Agents
+Design and develop AI agents that can think, remember, retrieve knowledge, automate workflows, and solve real-world challenges using modern agentic technologies.
+Event Schedule
+Google ADK Workshop
+Date: 24 June 2026 Time: 2:00 PM – 4:00 PM IST
+A hands-on learning session covering:
+* Google Agent Development Kit (ADK)
+* Agentic AI Fundamentals
+* Agent-to-Agent Communication (A2A)
+* Model Context Protocol (MCP)
+* Qdrant Vector Memory
+* Lyzr Agent Framework
+* AI Agent Architecture
+* Building Production-Ready Agents
+Participants will also receive starter notebooks, templates, and implementation resources.
+Hackathon Kickoff
+Date: 24 June 2026 Time: Immediately After the Workshop
+The hackathon officially begins after the ADK session.
+Participants can:
+* Form teams
+* Choose a problem statement
+* Access learning resources
+* Start building their solution
+* Connect with other participants
+* Submit their projects through the HiDevs Platform
+Registration Deadline
+Date: 28 June 2026 Time: 12:00 PM IST
+Submission Deadline
+Date: 28 June 2026 Time: 12:00 PM IST
+All submissions must be completed through the HiDevs Platform before the deadline.
+Evaluation Phase
+Date: 28 June 2026
+Projects will be reviewed by mentors and judges based on innovation, technical implementation, user experience, and effective use of AI agent technologies.
+Winner Announcement
+Date: 29 June 2026
+Venue: BIT College Campus, Bengaluru
+The winners will be announced and recognized during a special award ceremony at the college campus.
+Winning teams will receive cash prizes, certificates, sponsor merchandise, and recognition across the HiDevs and AI House communities.
+Technology Stack
+Google Ecosystem
+* Google Agent Development Kit (ADK)
+* Gemini Models
+* Agent-to-Agent Communication (A2A)
+* Model Context Protocol (MCP)
+* Google AI Technologies
+Memory Layer
+* Qdrant Vector Database
+* Semantic Search
+* Long-Term Agent Memory
+* Retrieval-Augmented Systems
+Agent Infrastructure
+* Lyzr Agent Framework
+* Multi-Agent Systems
+* Workflow Automation
+* Agent Orchestration
+Problem Statements
+Problem Statement 1
+Personal Digital Twin Agent
+Build an AI agent capable of learning and replicating a person's communication style, preferences, context, and behavioral patterns.
+Goal
+Create a highly personalized AI companion that feels like a digital extension of an individual.
+Problem Statement 2
+Club & Community Intelligence Agent
+Build an intelligent search and analytics agent capable of understanding and retrieving information from organizational, club, or community databases.
+Goal
+Transform community and organizational data into an intelligent knowledge system.
+Problem Statement 3
+Hackathon Launch & Marketing Agent
+Build an AI agent that transforms a simple hackathon idea into a complete launch-ready event package.
+Goal
+Create an AI-powered event operations assistant capable of reducing planning effort and accelerating event launches.
+Problem Statement 4
+Open Innovation
+Build any AI agent that solves a real-world challenge.
+Goal
+Demonstrate innovation, technical excellence, and practical impact.
+LinkedIn Builder Challenge
+Participants are encouraged to document and share their hackathon journey publicly.
+Prizes & Rewards
+* First Place – ₹5,000 + Certificate
+* Second Place – ₹3,000 + Certificate
+* Third Place – ₹2,000 + Certificate
+* Top 3 Qdrant Projects – Exclusive Qdrant Merchandise
+* Top 10 Best LinkedIn Posts – ₹5,000 Prize Pool
+Recognition & Benefits
+* Feature on HiDevs Official LinkedIn Page
+* Feature on AI House Official LinkedIn Page
+* Certificates
+* Community Recognition
+* Sponsor Merchandise
+Total Rewards Pool
+₹20,000+ Prize Pool
+Final Mission
+Build intelligent AI agents that combine reasoning, memory, retrieval, automation, and real-world impact using Google ADK, Qdrant, and Lyzr.
+Learn. Build. Ship. Win.
+Evaluation Criteria
+Projects will be evaluated based on Innovation (25%), Technical Implementation (25%), Agent Intelligence (20%), Memory & Retrieval Usage (15%), User Experience (10%), and Documentation (5%).

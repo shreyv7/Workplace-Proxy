@@ -1,0 +1,26 @@
+Resources
+Google ADK:-
+ADK Documentation - https://google.github.io/adk-docs/get-started/
+ADK Quickstart Guide - https://google.github.io/adk-docs/get-started/quickstart/
+
+Model Context Protocol (MCP)
+Google Cloud MCP Documentation - https://docs.cloud.google.com/mcp
+Google Cloud MCP Overview - https://docs.cloud.google.com/mcp/overview
+
+Agent-to-Agent Protocol (A2A) - 
+A2A Protocol Documentation - https://a2a-protocol.org/dev/
+A2A Getting Started Guide - https://www.a2aprotocol.org/en/tutorials/getting-started
+
+Qdrant
+Qdrant Documentation -  https://qdrant.tech/documentation/
+Qdrant Quick Start - https://qdrant.tech/documentation/quick-start/
+Qdrant Collections Guide - https://qdrant.tech/documentation/concepts/collections/
+Qdrant Search & Retrieval Guide - https://qdrant.tech/documentation/tutorials/search/
+Qdrant Academy - https://qdrant.tech/course/
+
+Lyzr
+Lyzr Documentation - https://docs.lyzr.ai/
+Lyzr Getting Started - https://docs.lyzr.ai/introduction/getting-started/intro
+Lyzr Studio - https://studio.lyzr.ai/
+Lyzr A2A Integration - https://docs.lyzr.ai/enterprise/integrations/a2a-protocol
+Lyzr + Qdrant Integration - https://docs.lyzr.ai/agent-lab/dataconnectors/qdrant 
