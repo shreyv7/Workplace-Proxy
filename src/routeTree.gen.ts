@@ -9,18 +9,48 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PreferencesRouteImport } from './routes/preferences'
+import { Route as MemoryRouteImport } from './routes/memory'
+import { Route as IntegrationsRouteImport } from './routes/integrations'
+import { Route as InsightsRouteImport } from './routes/insights'
 import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as IndexRouteImport } from './routes/index'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PreferencesRoute = PreferencesRouteImport.update({
   id: '/preferences',
   path: '/preferences',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MemoryRoute = MemoryRouteImport.update({
+  id: '/memory',
+  path: '/memory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntegrationsRoute = IntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InsightsRoute = InsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InboxRoute = InboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentsRoute = AgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -31,36 +61,88 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
   '/inbox': typeof InboxRoute
+  '/insights': typeof InsightsRoute
+  '/integrations': typeof IntegrationsRoute
+  '/memory': typeof MemoryRoute
   '/preferences': typeof PreferencesRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
   '/inbox': typeof InboxRoute
+  '/insights': typeof InsightsRoute
+  '/integrations': typeof IntegrationsRoute
+  '/memory': typeof MemoryRoute
   '/preferences': typeof PreferencesRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
   '/inbox': typeof InboxRoute
+  '/insights': typeof InsightsRoute
+  '/integrations': typeof IntegrationsRoute
+  '/memory': typeof MemoryRoute
   '/preferences': typeof PreferencesRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/inbox' | '/preferences'
+  fullPaths:
+    | '/'
+    | '/agents'
+    | '/inbox'
+    | '/insights'
+    | '/integrations'
+    | '/memory'
+    | '/preferences'
+    | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/inbox' | '/preferences'
-  id: '__root__' | '/' | '/inbox' | '/preferences'
+  to:
+    | '/'
+    | '/agents'
+    | '/inbox'
+    | '/insights'
+    | '/integrations'
+    | '/memory'
+    | '/preferences'
+    | '/settings'
+  id:
+    | '__root__'
+    | '/'
+    | '/agents'
+    | '/inbox'
+    | '/insights'
+    | '/integrations'
+    | '/memory'
+    | '/preferences'
+    | '/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgentsRoute: typeof AgentsRoute
   InboxRoute: typeof InboxRoute
+  InsightsRoute: typeof InsightsRoute
+  IntegrationsRoute: typeof IntegrationsRoute
+  MemoryRoute: typeof MemoryRoute
   PreferencesRoute: typeof PreferencesRoute
+  SettingsRoute: typeof SettingsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/preferences': {
       id: '/preferences'
       path: '/preferences'
@@ -68,11 +150,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PreferencesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/memory': {
+      id: '/memory'
+      path: '/memory'
+      fullPath: '/memory'
+      preLoaderRoute: typeof MemoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations': {
+      id: '/integrations'
+      path: '/integrations'
+      fullPath: '/integrations'
+      preLoaderRoute: typeof IntegrationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/insights': {
+      id: '/insights'
+      path: '/insights'
+      fullPath: '/insights'
+      preLoaderRoute: typeof InsightsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/inbox': {
       id: '/inbox'
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof InboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agents': {
+      id: '/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AgentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -87,8 +197,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgentsRoute: AgentsRoute,
   InboxRoute: InboxRoute,
+  InsightsRoute: InsightsRoute,
+  IntegrationsRoute: IntegrationsRoute,
+  MemoryRoute: MemoryRoute,
   PreferencesRoute: PreferencesRoute,
+  SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
