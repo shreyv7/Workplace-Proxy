@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { initialMessages, ClarityMessage } from "../lib/mock-data";
-import { Mail, MessageSquare, Layers, Users, AlertCircle, CheckCircle2, ShieldCheck, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+import { type ClarityMessage } from "../lib/mock-data";
+import { Mail, MessageSquare, Layers, Users, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/inbox")({
   head: () => ({
@@ -17,14 +18,70 @@ export const Route = createFileRoute("/inbox")({
 });
 
 function InboxPage() {
-  const [messages, setMessages] = useState<ClarityMessage[]>(initialMessages);
+  const [messages, setMessages] = useState<ClarityMessage[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const triggerGlobalSync = () => {
+  const fetchMessages = async () => {
+    try {
+      const { data } = await supabase
+        .from("messages")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (data) {
+        const mappedMsgs: ClarityMessage[] = data.map((m: any) => ({
+          message_id: m.message_id,
+          sender_name: m.sender_name,
+          sender_role: m.sender_role,
+          timestamp: m.timestamp,
+          original_text: m.original_text,
+          source: m.source,
+          importance: m.importance,
+          ambiguity: m.ambiguity,
+          agent_assigned: m.agent_assigned,
+          translation_status: m.translation_status,
+          translated_bullet_points: {
+            action: m.action,
+            complexity: m.complexity,
+            expected_duration: m.expected_duration,
+            steps: m.steps || [],
+          },
+          suggested_start_time: m.suggested_start_time,
+          suggested_end_time: m.suggested_end_time,
+          fidelity_rating: m.fidelity_rating,
+          acknowledged: m.acknowledged,
+          reasoning: m.reasoning,
+          debate_id: m.debate_id
+        }));
+        setMessages(mappedMsgs);
+      }
+    } catch (error) {
+      console.error("Error fetching inbox from Supabase: ", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchMessages();
+
+    // Set up realtime WebSocket channel
+    const channel = supabase
+      .channel("inbox_realtime_sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => {
+        fetchMessages();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const triggerGlobalSync = async () => {
     setIsSyncing(true);
+    await fetchMessages();
     setTimeout(() => {
       setIsSyncing(false);
-    }, 1200);
+    }, 800);
   };
 
   const getSourceIcon = (source: ClarityMessage["source"]) => {
@@ -100,59 +157,65 @@ function InboxPage() {
       <div className="space-y-4">
         <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Chronological Feed</h3>
         <div className="border border-border rounded-2xl overflow-hidden divide-y divide-border/60 bg-card">
-          {messages.map((m) => {
-            const importanceStyle = getImportanceStyles(m.importance);
+          {messages.length > 0 ? (
+            messages.map((m) => {
+              const importanceStyle = getImportanceStyles(m.importance);
 
-            return (
-              <div 
-                key={m.message_id} 
-                className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-secondary/15 transition-colors"
-              >
-                {/* Source & Sender */}
-                <div className="flex items-start gap-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary shrink-0">
-                    {getSourceIcon(m.source)}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-foreground">{m.sender_name}</span>
-                      <span className="text-[10px] text-muted-foreground font-mono">{m.sender_role}</span>
+              return (
+                <div 
+                  key={m.message_id} 
+                  className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-secondary/15 transition-colors animate-slide-up"
+                >
+                  {/* Source & Sender */}
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary shrink-0">
+                      {getSourceIcon(m.source)}
                     </div>
-                    {/* Raw Text preview */}
-                    <p className="mt-1 text-xs text-foreground/80 leading-relaxed font-mono">
-                      "{m.original_text}"
-                    </p>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-foreground">{m.sender_name}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">{m.sender_role}</span>
+                      </div>
+                      {/* Raw Text preview */}
+                      <p className="mt-1 text-xs text-foreground/80 leading-relaxed font-mono">
+                        "{m.original_text}"
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Status elements */}
+                  <div className="flex items-center gap-4 shrink-0 justify-end sm:justify-start">
+                    <span className={["px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border", importanceStyle].join(" ")}>
+                      {m.importance}
+                    </span>
+                    
+                    <div className="text-right">
+                      <span className="text-[10px] text-muted-foreground font-mono block">Assigned agent:</span>
+                      <span className="text-[10px] font-semibold text-foreground font-mono">{m.agent_assigned}</span>
+                    </div>
+
+                    <div className="h-9 w-px bg-border/60" />
+
+                    <div>
+                      {m.acknowledged ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-mint font-semibold bg-mint-soft/30 px-2.5 py-1 rounded-lg">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Scheduled
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-indigo-500 font-semibold bg-indigo-50 dark:bg-indigo-950/20 px-2.5 py-1 rounded-lg">
+                          <AlertCircle className="h-3.5 w-3.5" /> Triage lock
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-
-                {/* Status elements */}
-                <div className="flex items-center gap-4 shrink-0 justify-end sm:justify-start">
-                  <span className={["px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border", importanceStyle].join(" ")}>
-                    {m.importance}
-                  </span>
-                  
-                  <div className="text-right">
-                    <span className="text-[10px] text-muted-foreground font-mono block">Assigned agent:</span>
-                    <span className="text-[10px] font-semibold text-foreground font-mono">{m.agent_assigned}</span>
-                  </div>
-
-                  <div className="h-9 w-px bg-border/60" />
-
-                  <div>
-                    {m.acknowledged ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-mint font-semibold bg-mint-soft/30 px-2.5 py-1 rounded-lg">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Scheduled
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-indigo-500 font-semibold bg-indigo-50 dark:bg-indigo-950/20 px-2.5 py-1 rounded-lg">
-                        <AlertCircle className="h-3.5 w-3.5" /> Triage lock
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+            <div className="p-8 text-center text-muted-foreground text-xs font-semibold">
+              No inbound signals located in Supabase. Use trigger simulator on home page to seed.
+            </div>
+          )}
         </div>
       </div>
     </div>
