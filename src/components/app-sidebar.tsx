@@ -1,5 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Sun, Inbox, SlidersHorizontal, Sparkles, Brain, Bot, Link2, Settings, TrendingUp } from "lucide-react";
+import { Inbox, SlidersHorizontal, Sparkles, Brain, Bot, Link2, Settings, TrendingUp, Sun } from "lucide-react";
+import { ThemeToggle } from "./theme-toggle";
 
 const nav = [
   { to: "/dashboard", label: "Daily Clarity", icon: Sun },
@@ -51,6 +52,11 @@ export function AppSidebar() {
           );
         })}
       </nav>
+
+      {/* Theme toggle */}
+      <div className="px-4 pb-2">
+        <ThemeToggle />
+      </div>
 
       {/* Bottom Status Card */}
       <div className="m-4 rounded-2xl border border-sidebar-border bg-card/40 p-4 shadow-sm backdrop-blur-sm">

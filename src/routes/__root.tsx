@@ -13,6 +13,17 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportError } from "../lib/error-reporting";
 import { AppSidebar } from "../components/app-sidebar";
+import { ThemeProvider } from "../hooks/use-theme";
+
+// Runs synchronously before first paint — sets .dark on <html> so CSS variables
+// are correct before any React hydration, preventing flash of wrong theme.
+const THEME_SCRIPT = `
+try {
+  var t = localStorage.getItem('theme');
+  if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  if (t === 'dark') document.documentElement.classList.add('dark');
+} catch(e) {}
+`;
 
 function NotFoundComponent() {
   return (
@@ -115,6 +126,8 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        {/* Anti-FOUC: apply theme class before first paint */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>
         {children}
@@ -129,24 +142,22 @@ function RootComponent() {
   const location = useLocation();
   const isLandingPage = location.pathname === "/";
 
-  if (isLandingPage) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <div className="min-h-dvh bg-[#030303] text-white overflow-x-hidden">
-          <Outlet />
-        </div>
-      </QueryClientProvider>
-    );
-  }
-
   return (
-    <QueryClientProvider client={queryClient}>
-      <div className="min-h-dvh bg-background">
-        <AppSidebar />
-        <main className="md:pl-64">
-          <Outlet />
-        </main>
-      </div>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        {isLandingPage ? (
+          <div className="min-h-dvh bg-[#030303] text-white overflow-x-hidden">
+            <Outlet />
+          </div>
+        ) : (
+          <div className="min-h-dvh bg-background">
+            <AppSidebar />
+            <main className="md:pl-64">
+              <Outlet />
+            </main>
+          </div>
+        )}
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
