@@ -1,58 +1,79 @@
-﻿Product Requirements Document (PRD)
-Project Name: Workplace Proxy (Autonomous Cognitive OS) Track: Open Innovation Timeline: MVP to be completed for evaluation on June 28, 2026.
+Product Requirements Document (PRD)
+Project Name: Project Clarity (Autonomous Cognitive OS) Track: Open Innovation Timeline:
+MVP to be completed for evaluation on June 28, 2026.
 1. Executive Summary
-The Problem: Corporate communication is filled with implicit expectations, passive-aggressive language, and vague requests (e.g., "Hey, can you take a look at this whenever?"). For neurodivergent professionals (e.g., those with Autism or ADHD), decoding this "corporate speak" into actionable tasks is exhausting and can lead to burnout. The Solution: Build a Multi-Agent "Communication Buffer" system. Workplace Proxy sits between a neurodivergent employee and their workplace tools (Slack, Email, Jira). It intercepts vague communications, negotiates the actual meaning and urgency using a swarm of specialized agents, and translates the message into clear, explicit, and structured tasks tailored to the user's specific cognitive preferences.
+The Problem: Corporate communication is filled with implicit expectations, passive-aggressive
+language, and vague requests (e.g., "Hey, can you take a look at this whenever?"). For
+neurodivergent professionals (e.g., those with Autism or ADHD), decoding this "corporate
+speak" into actionable tasks is exhausting and can lead to burnout. The Solution: Build a
+Multi-Agent "Communication Buffer" system. Project Clarity sits between a neurodivergent
+employee and their workplace tools (Slack, Email, Jira). It intercepts vague communications,
+negotiates the actual meaning and urgency using a swarm of specialized agents, and translates
+the message into clear, explicit, and structured tasks tailored to the user's specific cognitive
+preferences.
 2. Target Audience
-* Primary End-Users: Neurodivergent professionals (ADHD, Autism) or anyone experiencing high cognitive load who struggles with unstructured communication and context-switching.
-* Buyers: B2B Enterprise HR and Accessibility & Inclusion departments looking for effective SaaS tools with a strong social impact angle.
+● Primary End-Users: Neurodivergent professionals (ADHD, Autism) or anyone
+experiencing high cognitive load who struggles with unstructured communication and
+context-switching.
+● Buyers: B2B Enterprise HR and Accessibility & Inclusion departments looking for effective
+SaaS tools with a strong social impact angle.
 3. Core Features (Hackathon MVP Scope)
-* Message Interception: Automatically reading incoming messages from mock environments (Slack/Email).
-* Vagueness Translation: Converting ambiguous corporate jargon into structured, actionable items (e.g., translating "no rush" into an actual deadline based on project context).
-* Personalized Formatting: Adjusting output based on user preferences (e.g., "always use bullet points," "needs exact deadlines").
-* Calendar Syncing: Assessing the user's cognitive bandwidth and automatically slotting the translated task into an optimal calendar block.
-* Feedback Loop: A slider for the user to rate the translation, which continuously trains the system's memory.
-
-
-
-
-
-
-
-
-
-
-4. System Architecture & Tech Stack Mapping
-
-
-Technology
-	Implementation in Workplace Proxy
-	Model Context Protocol (MCP)
-	Securely hooks the agent system into external mock environments like Slack, an email inbox, Jira, and Calendar. Proves agents can interact with the real world.
-	Qdrant Vector Database
-	Stores Long-Term Memory in two buckets:
-
-
-1. User Context: The employee's specific triggers, preferred formatting, and working hours.
-
-
-2. Corporate Context: A mini-database of company jargon, hierarchy, and past resolved ambiguities.
-	Lyzr Framework
-	Orchestrates Agent-to-Agent (A2A) communication and multi-agent debate before the user sees the message.
-	Google ADK & Gemini Models
-	Powers the reasoning engines of the individual agents, leveraging Gemini's strong context-window capabilities to process complex email threads or document histories.
-	5. The Multi-Agent Workflow (A2A Flow)
+● Message Interception: Automatically reading incoming messages from mock
+environments (Slack/Email).
+● Vagueness Translation: Converting ambiguous corporate jargon into structured,
+actionable items (e.g., translating "no rush" into an actual deadline based on project
+context).
+● Personalized Formatting: Adjusting output based on user preferences (e.g., "always use
+bullet points," "needs exact deadlines").
+● Calendar Syncing: Assessing the user's cognitive bandwidth and automatically slotting
+the translated task into an optimal calendar block.
+● Feedback Loop: A slider for the user to rate the translation, which continuously trains
+the system's memory.4. System Architecture & Tech Stack Mapping
+Technology Implementation in Project Clarity
+Model Context Protocol (MCP) Securely hooks the agent system into
+external mock environments like Slack, an
+email inbox, Jira, and Calendar. Proves
+agents can interact with the real world.
+Qdrant Vector Database Stores Long-Term Memory in two buckets:
+1. User Context: The employee's specific
+triggers, preferred formatting, and working
+hours.
+2. Corporate Context: A mini-database of
+company jargon, hierarchy, and past
+resolved ambiguities.
+Lyzr Framework Orchestrates Agent-to-Agent (A2A)
+communication and multi-agent debate
+before the user sees the message.
+Google ADK & Gemini Models Powers the reasoning engines of the
+individual agents, leveraging Gemini's
+strong context-window capabilities to
+process complex email threads or
+document histories.
+5. The Multi-Agent Workflow (A2A Flow)
 Instead of one prompt, the system uses Lyzr to orchestrate a multi-agent debate.
-1. Agent 1 (The Interceptor): Reads the incoming message via MCP (e.g., "Boss: Are we still on track for the thing? No rush.").
-2. Agent 2 (The Contextualizer): Queries Qdrant to figure out what "the thing" is and determines if "no rush" actually means "I need this by EOD.".
-3. Agent 3 (The Scheduler): Connects to the user's Calendar via MCP, checks available deep-work blocks, and assigns a realistic timeline to the request.
-4. Agent 4 (The Twin/Translator): Takes the context from Agent 2, checks the user's preferences, and rewrites the message, integrating the time slot proposed by Agent 3.
-The Debate Mechanism: Agent 2, Agent 3, and Agent 4 debate briefly to ensure the nuance isn't lost before delivering the final output to the user.
-6. User Interface (UX/UI) Requirements
+1. Agent 1 (The Interceptor): Reads the incoming message via MCP (e.g., "Boss: Are we
+still on track for the thing? No rush.").
+2. Agent 2 (The Contextualizer): Queries Qdrant to figure out what "the thing" is and
+determines if "no rush" actually means "I need this by EOD.".
+3. Agent 3 (The Scheduler): Connects to the user's Calendar via MCP, checks available
+deep-work blocks, and assigns a realistic timeline to the request.
+4. Agent 4 (The Twin/Translator): Takes the context from Agent 2, checks the user's
+preferences, and rewrites the message, integrating the time slot proposed by Agent 3.
+The Debate Mechanism: Agent 2, Agent 3, and Agent 4 debate briefly to ensure the nuance
+isn't lost before delivering the final output to the user.6. User Interface (UX/UI) Requirements
 The UI must be incredibly minimal to reduce cognitive load.
-* Side-by-Side View: A simple dashboard showing the "original message" vs. the "translated task".
-* Daily Clarity Briefing: A summarized view of the day's translated tasks and calendar blocks.
-* Feedback Mechanism: A slider for the user to rate the translation, which feeds back into Qdrant to improve future translations.
-7. Success Metrics & Evaluation Criteria Check
-* Innovation: Demonstrates a pivot from generic "content generation" into "cognitive accessibility".
-* Technical Implementation: Successfully executes A2A debate, RAG (via Qdrant), and live tool integration (via MCP), serving as an architectural flex.
-* Effective Use of AI Agents: Proves multi-agent systems are superior to single LLM calls, which might hallucinate the meaning of the message. By cross-referencing facts and debating intent, the system produces a reliable, safe output.
+● Side-by-Side View: A simple dashboard showing the "original message" vs. the
+"translated task".
+● Daily Clarity Briefing: A summarized view of the day's translated tasks and calendar
+blocks.
+● Feedback Mechanism: A slider for the user to rate the translation, which feeds back into
+Qdrant to improve future translations.
+7.
+Success Metrics & Evaluation Criteria Check
+● Innovation: Demonstrates a pivot from generic "content generation" into "cognitive
+accessibility".
+● Technical Implementation: Successfully executes A2A debate, RAG (via Qdrant), and
+live tool integration (via MCP), serving as an architectural flex.
+● Effective Use of AI Agents: Proves multi-agent systems are superior to single LLM calls,
+which might hallucinate the meaning of the message. By cross-referencing facts and
+debating intent, the system produces a reliable, safe output
