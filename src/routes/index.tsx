@@ -239,21 +239,21 @@ function DailyClarity() {
         source: "slack",
         sender_name: "Boss Tom",
         sender_role: "Engineering Director",
-        original_text: "Hey, can you double check the staging configurations whenever you have a minute? Also check the deployment checklist.",
+        content: "Hey, can you double check the staging configurations whenever you have a minute? Also check the deployment checklist.",
       });
     } else if (type === "email") {
       await sendRawMessageToSwarm({
         source: "email",
         sender_name: "External Client",
         sender_role: "Account Lead",
-        original_text: "Hi, following up on our roadmap alignment call. Are you available sometime tomorrow around 3 PM?",
+        content: "Hi, following up on our roadmap alignment call. Are you available sometime tomorrow around 3 PM?",
       });
     } else {
       await sendRawMessageToSwarm({
         source: "jira",
         sender_name: "Sprint Triage",
         sender_role: "Product Manager",
-        original_text: "Critical: Revisit the onboarding flow feedback from QA. Need to lower gradient saturation before staging push.",
+        content: "Critical: Revisit the onboarding flow feedback from QA. Need to lower gradient saturation before staging push.",
       });
     }
   };
