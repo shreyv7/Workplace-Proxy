@@ -394,6 +394,7 @@ function DailyClarity() {
       {selectedDebateId && (
         <AgentDebateModal
           debateId={selectedDebateId}
+          message={messages.find((m) => m.debate_id === selectedDebateId)}
           onClose={() => setSelectedDebateId(null)}
         />
       )}

@@ -187,6 +187,15 @@ def create_app() -> FastAPI:
     # CORS — Role 1's Vercel frontend must be able to call us from the browser.
     # See DECISIONS.md and RISK_REGISTER.md RISK-I04.
     allowed_origins = settings.get_cors_origins_list()
+    if "*" in allowed_origins:
+        allowed_origins = [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:8000",
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://localhost:3002",
+        ]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,

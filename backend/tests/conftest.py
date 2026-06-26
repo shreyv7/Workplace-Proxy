@@ -12,6 +12,7 @@ import os
 # Set required env vars before any Settings are instantiated.
 # Tests never hit the real Gemini API — agents are mocked.
 os.environ.setdefault("GOOGLE_API_KEY", "test-key-not-used-in-mocked-tests")
+os.environ["DEMO_MODE"] = "false"
 
 from datetime import datetime, timezone
 from typing import AsyncGenerator
