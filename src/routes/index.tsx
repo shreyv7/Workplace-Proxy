@@ -34,7 +34,7 @@ function LandingPage() {
           intensity={0.65}
           saturation={1.5}
           opacity={0.85}
-          scale={1.65}
+          scale={1.9}
           glass={false}
         />
         {/* Backdrop masks to ensure high contrast and readability */}
