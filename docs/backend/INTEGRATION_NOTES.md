@@ -1,4 +1,4 @@
-# Integration Notes — Project Clarity
+# Integration Notes — Workplace Proxy
 
 > This document is the binding API contract between Role 1, Role 2, and Role 3.
 > ALL THREE roles must agree on these schemas before the June 28 demo.

@@ -6,7 +6,7 @@ import { Bot, Zap, ShieldAlert, Cpu, Sparkles, Network, RefreshCw, Layers } from
 export const Route = createFileRoute("/agents")({
   head: () => ({
     meta: [
-      { title: "Agent Swarm — Project Clarity" },
+      { title: "Agent Swarm — Workplace Proxy" },
       {
         name: "description",
         content: "Explore the live operational status, tool triggers, latency, and consensus logic of active AI agents.",

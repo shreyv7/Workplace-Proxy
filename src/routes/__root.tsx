@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useLocation,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -78,13 +79,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Project Clarity — Cognitive Workspace" },
+      { title: "Workplace Proxy — Cognitive Workspace" },
       {
         name: "description",
         content:
           "A neuro-inclusive multi-agent cognitive workspace that translates ambiguous messages into clear, scheduled actions.",
       },
-      { property: "og:title", content: "Project Clarity — Cognitive Workspace" },
+      { property: "og:title", content: "Workplace Proxy — Cognitive Workspace" },
       {
         property: "og:description",
         content:
@@ -125,6 +126,18 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const location = useLocation();
+  const isLandingPage = location.pathname === "/";
+
+  if (isLandingPage) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <div className="min-h-dvh bg-[#030303] text-white overflow-x-hidden">
+          <Outlet />
+        </div>
+      </QueryClientProvider>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

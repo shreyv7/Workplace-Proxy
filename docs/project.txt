@@ -1,10 +1,10 @@
-﻿Project Clarity 2.0: Platform Comprehensive Context & Feature Specification
-Project Name: Project Clarity (Autonomous Cognitive OS)
+﻿Workplace Proxy 2.0: Platform Comprehensive Context & Feature Specification
+Project Name: Workplace Proxy (Autonomous Cognitive OS)
 Track: Open Innovation
 Target Evaluation Date: June 28, 2026
 1. Executive Platform Vision
-Project Clarity 2.0 transforms AI from a passive content generation tool into an active, protective, and personalized Cognitive Operating System. Designed specifically for neurodivergent professionals (such as individuals with ADHD or Autism) and teams facing high cognitive friction, the platform acts as an intelligent "Communication Buffer" and workflow optimization layer.
-By sitting securely between an employee and the chaotic corporate digital ecosystem (Slack, Email, Jira, Calendars), Project Clarity 2.0 intercepts incoming communication signals, strip-mines them of ambiguity, coordinates execution windows, and delivers structured, actionable clarity.
+Workplace Proxy 2.0 transforms AI from a passive content generation tool into an active, protective, and personalized Cognitive Operating System. Designed specifically for neurodivergent professionals (such as individuals with ADHD or Autism) and teams facing high cognitive friction, the platform acts as an intelligent "Communication Buffer" and workflow optimization layer.
+By sitting securely between an employee and the chaotic corporate digital ecosystem (Slack, Email, Jira, Calendars), Workplace Proxy 2.0 intercepts incoming communication signals, strip-mines them of ambiguity, coordinates execution windows, and delivers structured, actionable clarity.
 2. Core Platform Features & Functional Specifications
 A. Dynamic Message Interception & Vagueness Translation
 * Asynchronous Processing: Multi-channel inputs (e.g., Slack direct messages, enterprise emails, Jira ticket updates) are intercepted via secure data pipelines before they trigger notifications for the user.
@@ -22,7 +22,7 @@ E. Continuous Calibration Engine (Feedback Loop)
 * Precision Sliders: Each translated task card features an interactive feedback scale (1–5) for the user to rate the alignment and tone accuracy of the translation.
 * Long-Term Preference Anchoring: This data loops back directly to update the vector database embeddings, training the twin agent to better understand localized organizational nuances and user thresholds over time.
 3. Deep Architecture & Under-the-Hood Data Flow
-The true technical innovation lies in moving away from single-prompt architectures. Project Clarity 2.0 utilizes an asymmetric Multi-Agent Consensus Debate powered by Lyzr and Qdrant to ensure zero hallucination and high context mapping.
+The true technical innovation lies in moving away from single-prompt architectures. Workplace Proxy 2.0 utilizes an asymmetric Multi-Agent Consensus Debate powered by Lyzr and Qdrant to ensure zero hallucination and high context mapping.
 
 
 

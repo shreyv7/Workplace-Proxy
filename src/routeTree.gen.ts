@@ -15,6 +15,7 @@ import { Route as MemoryRouteImport } from './routes/memory'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
 import { Route as InsightsRouteImport } from './routes/insights'
 import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -48,6 +49,11 @@ const InboxRoute = InboxRouteImport.update({
   path: '/inbox',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AgentsRoute = AgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
@@ -62,6 +68,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
+  '/dashboard': typeof DashboardRoute
   '/inbox': typeof InboxRoute
   '/insights': typeof InsightsRoute
   '/integrations': typeof IntegrationsRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
+  '/dashboard': typeof DashboardRoute
   '/inbox': typeof InboxRoute
   '/insights': typeof InsightsRoute
   '/integrations': typeof IntegrationsRoute
@@ -83,6 +91,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
+  '/dashboard': typeof DashboardRoute
   '/inbox': typeof InboxRoute
   '/insights': typeof InsightsRoute
   '/integrations': typeof IntegrationsRoute
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/agents'
+    | '/dashboard'
     | '/inbox'
     | '/insights'
     | '/integrations'
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/agents'
+    | '/dashboard'
     | '/inbox'
     | '/insights'
     | '/integrations'
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/agents'
+    | '/dashboard'
     | '/inbox'
     | '/insights'
     | '/integrations'
@@ -126,6 +138,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AgentsRoute: typeof AgentsRoute
+  DashboardRoute: typeof DashboardRoute
   InboxRoute: typeof InboxRoute
   InsightsRoute: typeof InsightsRoute
   IntegrationsRoute: typeof IntegrationsRoute
@@ -178,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InboxRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/agents': {
       id: '/agents'
       path: '/agents'
@@ -198,6 +218,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AgentsRoute: AgentsRoute,
+  DashboardRoute: DashboardRoute,
   InboxRoute: InboxRoute,
   InsightsRoute: InsightsRoute,
   IntegrationsRoute: IntegrationsRoute,

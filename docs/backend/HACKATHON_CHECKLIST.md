@@ -1,4 +1,4 @@
-# Hackathon Checklist — Project Clarity, Role 2
+# Hackathon Checklist — Workplace Proxy, Role 2
 
 > **Deadline**: June 28, 2026  
 > **Audience**: Any teammate who needs to demo or run Role 2 on short notice.  

@@ -1,7 +1,7 @@
 {
   "name": "calendar-mcp-server",
   "version": "1.0.0",
-  "description": "Mock HTTP Calendar MCP Bridge for Project Clarity",
+  "description": "Mock HTTP Calendar MCP Bridge for Workplace Proxy",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"

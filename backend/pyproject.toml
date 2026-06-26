@@ -5,7 +5,7 @@ build-backend = "setuptools.backends.legacy:build"
 [project]
 name = "project-clarity-orchestrator"
 version = "0.1.0"
-description = "Role 2 – Multi-Agent Orchestrator for Project Clarity"
+description = "Role 2 – Multi-Agent Orchestrator for Workplace Proxy"
 requires-python = ">=3.11"
 dependencies = [
     # Already installed on this machine

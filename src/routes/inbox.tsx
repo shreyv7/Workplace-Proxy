@@ -7,7 +7,7 @@ import { Mail, MessageSquare, Layers, Users, AlertCircle, CheckCircle2, RefreshC
 export const Route = createFileRoute("/inbox")({
   head: () => ({
     meta: [
-      { title: "Communication Inbox — Project Clarity" },
+      { title: "Communication Inbox — Workplace Proxy" },
       {
         name: "description",
         content: "All intercepted communication threads across your connected channels.",

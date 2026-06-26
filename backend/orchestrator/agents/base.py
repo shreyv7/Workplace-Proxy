@@ -1,4 +1,4 @@
-"""Base agent abstraction for all Project Clarity agents.
+"""Base agent abstraction for all Workplace Proxy agents.
 
 Each concrete agent (Interceptor, Contextualizer, Scheduler, Translator) extends
 BaseAgent and gets LLM inference via the injected LLMBackend. The backend is
@@ -77,7 +77,7 @@ class AgentReview:
 
 class BaseAgent(ABC):
     """
-    Abstract base for all Project Clarity agents.
+    Abstract base for all Workplace Proxy agents.
 
     Each concrete agent provides:
     - name: unique agent identifier

@@ -12,7 +12,7 @@ Role in architecture:
     create_lyzr_backend() is the async factory called by llm.backend.create_backend()
     when LYZR_ENABLED=true and LYZR_API_KEY is set.
 
-    All four Project Clarity agents share ONE LyzrBackend instance (one Lyzr cloud
+    All four Workplace Proxy agents share ONE LyzrBackend instance (one Lyzr cloud
     agent). The agent's system_prompt (persona) is prepended to each call message so
     the model receives the full context, mirroring how GoogleBackend uses
     system_instruction. The DebateEngine orchestration loop is unchanged (ADR-006).
@@ -59,7 +59,7 @@ class LyzrBackend(LLMBackend):
     LLM backend that routes inference through Lyzr's cloud platform.
 
     Implements LLMBackend so it is a drop-in replacement for GoogleBackend.
-    ONE instance is shared across all four Project Clarity agents.
+    ONE instance is shared across all four Workplace Proxy agents.
 
     call_text / call_json:
       Both prepend the system_prompt (agent persona) to the user message before
@@ -104,7 +104,7 @@ async def create_per_agent_lyzr_backends(
     model: str,
 ) -> dict[str, LyzrBackend]:
     """
-    Async factory: create one Lyzr cloud agent per Project Clarity agent role.
+    Async factory: create one Lyzr cloud agent per Workplace Proxy agent role.
 
     Returns a dict keyed by agent name: interceptor, contextualizer, scheduler,
     translator. Each agent gets a dedicated Lyzr cloud instance with role-specific
@@ -129,44 +129,44 @@ async def create_per_agent_lyzr_backends(
     _AGENT_CONFIGS = {
         "interceptor": {
             "name": "clarity_interceptor",
-            "description": "Message Intelligence Analyst for Project Clarity.",
+            "description": "Message Intelligence Analyst for Workplace Proxy.",
             "role": "Workplace Message Analyst",
             "goal": "Produce complete structural analysis of every incoming message.",
             "instructions": (
-                "You are the Interceptor (Agent 1) in Project Clarity. "
+                "You are the Interceptor (Agent 1) in Workplace Proxy. "
                 "Extract vague phrases, implicit signals, and key references from messages. "
                 "Always respond in strict JSON format as specified in each prompt."
             ),
         },
         "contextualizer": {
             "name": "clarity_contextualizer",
-            "description": "Corporate Language Decoder for Project Clarity.",
+            "description": "Corporate Language Decoder for Workplace Proxy.",
             "role": "Corporate Context Specialist",
             "goal": "Decode vague corporate language into concrete, unambiguous meaning.",
             "instructions": (
-                "You are the Contextualizer (Agent 2) in Project Clarity. "
+                "You are the Contextualizer (Agent 2) in Workplace Proxy. "
                 "Resolve vague references using company knowledge. "
                 "Decode implicit urgency. Always respond in strict JSON format."
             ),
         },
         "scheduler": {
             "name": "clarity_scheduler",
-            "description": "Temporal Realism Enforcer for Project Clarity.",
+            "description": "Temporal Realism Enforcer for Workplace Proxy.",
             "role": "Task Scheduling Specialist",
             "goal": "Propose realistic deadlines and calendar slots — never vague time words.",
             "instructions": (
-                "You are the Scheduler (Agent 3) in Project Clarity. "
+                "You are the Scheduler (Agent 3) in Workplace Proxy. "
                 "Convert urgency levels into concrete deadlines and duration estimates. "
                 "Always respond in strict JSON format as specified in each prompt."
             ),
         },
         "translator": {
             "name": "clarity_translator",
-            "description": "Neurodivergent Communication Specialist (The Twin) for Project Clarity.",
+            "description": "Neurodivergent Communication Specialist (The Twin) for Workplace Proxy.",
             "role": "Clarity Communication Specialist",
             "goal": "Produce explicit, unambiguous task translations tailored to the user's cognitive needs.",
             "instructions": (
-                "You are the Translator / Twin (Agent 4) in Project Clarity. "
+                "You are the Translator / Twin (Agent 4) in Workplace Proxy. "
                 "Rewrite decoded messages as structured tasks in the user's preferred format. "
                 "Always respond in strict JSON format as specified in each prompt."
             ),
@@ -197,7 +197,7 @@ async def create_lyzr_backend(api_key: str, model: str) -> LyzrBackend:
     Async factory: create one Lyzr cloud agent and return a LyzrBackend wrapping it.
 
     Called once at startup by llm.backend.create_backend() when LYZR_ENABLED=true.
-    The resulting LyzrBackend is shared across all four Project Clarity agents.
+    The resulting LyzrBackend is shared across all four Workplace Proxy agents.
 
     Raises RuntimeError if lyzr-adk is not installed.
     Propagates any lyzr SDK exception (network failure, bad API key, etc.) so the
@@ -212,7 +212,7 @@ async def create_lyzr_backend(api_key: str, model: str) -> LyzrBackend:
     agent: Any = await studio.acreate_agent(
         name="project_clarity_orchestrator",
         description=(
-            "Multi-agent orchestration backend for Project Clarity. Processes vague "
+            "Multi-agent orchestration backend for Workplace Proxy. Processes vague "
             "workplace messages through specialized AI agent personas to help "
             "neurodivergent professionals understand what is being asked of them."
         ),
@@ -222,7 +222,7 @@ async def create_lyzr_backend(api_key: str, model: str) -> LyzrBackend:
             "responding in the exact JSON or text format specified."
         ),
         instructions=(
-            "You are a specialist AI backing Project Clarity's multi-agent pipeline. "
+            "You are a specialist AI backing Workplace Proxy's multi-agent pipeline. "
             "Each message you receive begins with a PERSONA section (your role for this call) "
             "followed by the actual task. Follow the persona instructions precisely. "
             "Always respond in the exact output format described in the persona."

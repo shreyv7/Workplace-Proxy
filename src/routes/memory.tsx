@@ -6,7 +6,7 @@ import { Brain, Search, Sparkles, User, Building, Database, Clock, RefreshCw } f
 export const Route = createFileRoute("/memory")({
   head: () => ({
     meta: [
-      { title: "Cognitive Memory — Project Clarity" },
+      { title: "Cognitive Memory — Workplace Proxy" },
       {
         name: "description",
         content: "Explore the vector database storing your personal energy schedules and corporate context policies.",

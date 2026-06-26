@@ -1,4 +1,4 @@
-# Project Clarity — Role 2 Persistent Context
+# Workplace Proxy — Role 2 Persistent Context
 
 > **Read this file at the start of every Claude session before writing a single line of code.**
 > It is the single source of truth for Role 2 architecture, decisions, and status.
@@ -7,7 +7,7 @@
 
 ## 1. Project Summary
 
-**Name**: Project Clarity (Autonomous Cognitive OS)
+**Name**: Workplace Proxy (Autonomous Cognitive OS)
 **Track**: Open Innovation
 **Deadline**: June 28, 2026 (MVP evaluation)
 **Today**: June 25, 2026 — 3 days remaining

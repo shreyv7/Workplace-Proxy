@@ -9,7 +9,7 @@ simple relational data tracking alongside the vector database.
 the mock Slack/Email environments and Google Calendar to the backend. You are
 responsible for ensuring data flows cleanly in and out of the application.
 Role 2: The Multi-Agent Orchestrator
-Their Mission: Build the "brain" of Project Clarity. This person works entirely in Python,
+Their Mission: Build the "brain" of Workplace Proxy. This person works entirely in Python,
 focusing on prompt engineering and the Agent-to-Agent (A2A) debate architecture.
 ● Configure Lyzr & Gemini: Initialize the Lyzr framework using the Google Agent
 Development Kit (ADK) and Gemini models.

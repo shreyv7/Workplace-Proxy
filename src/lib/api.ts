@@ -1,5 +1,5 @@
 /**
- * Backend API client for Project Clarity — Role 2 (Multi-Agent Orchestrator).
+ * Backend API client for Workplace Proxy — Role 2 (Multi-Agent Orchestrator).
  *
  * TypeScript types mirror the backend's Pydantic schemas in
  * backend/orchestrator/api/schemas.py exactly. Keep them in sync.

@@ -2,7 +2,7 @@
 
 google-adk 2.3.0 is installed and confirmed working.
 
-This module provides ADK-native LlmAgent wrappers for each Project Clarity agent persona,
+This module provides ADK-native LlmAgent wrappers for each Workplace Proxy agent persona,
 and a Runner factory for executing them. The core DebateEngine uses these as an optional
 backend — the pure Python orchestration in debate/engine.py remains the primary path.
 

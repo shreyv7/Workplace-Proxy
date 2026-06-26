@@ -1,4 +1,4 @@
-# Project Clarity — Role 2 Architecture
+# Workplace Proxy — Role 2 Architecture
 
 > Written before implementation of the 9-phase multi-agent enhancement (Session 4).
 > This document is the authoritative reference for the Role 2 system design.

@@ -1,4 +1,4 @@
-PROJECT CLARITY - ROLE 1 (FULL-STACK & INTEGRATION LEAD) TOOLKIT
+WORKPLACE PROXY - ROLE 1 (FULL-STACK & INTEGRATION LEAD) TOOLKIT
 
 ================================================================================
 1. FRONTEND & CLIENT STACK

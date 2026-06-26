@@ -1,4 +1,4 @@
-"""LLM backend abstraction for Project Clarity agents.
+"""LLM backend abstraction for Workplace Proxy agents.
 
 All four agents (Interceptor, Contextualizer, Scheduler, Translator) call
 BaseAgent._call_text() and ._call_json(), which delegate here. Swapping

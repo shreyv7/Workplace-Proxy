@@ -171,9 +171,9 @@ def create_app() -> FastAPI:
     settings = get_settings()
 
     app = FastAPI(
-        title="Project Clarity — Role 2: Multi-Agent Orchestrator",
+        title="Workplace Proxy — Role 2: Multi-Agent Orchestrator",
         description=(
-            "The 'brain' of Project Clarity. "
+            "The 'brain' of Workplace Proxy. "
             "Receives raw workplace messages from Role 1's frontend, "
             "runs them through a 4-agent debate pipeline powered by Gemini, "
             "and returns structured, neurodivergent-friendly task translations."

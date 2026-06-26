@@ -26,7 +26,7 @@ from orchestrator.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-_PERSONA = """You are the Interceptor — Agent 1 in Project Clarity's multi-agent system.
+_PERSONA = """You are the Interceptor — Agent 1 in Workplace Proxy's multi-agent system.
 
 Your sole job is to receive a raw workplace message and extract structured intelligence from it.
 You are helping neurodivergent employees who struggle to decode implicit corporate communication.

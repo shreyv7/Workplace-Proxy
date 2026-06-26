@@ -1,7 +1,7 @@
 ﻿Product Requirements Document (PRD)
-Project Name: Project Clarity (Autonomous Cognitive OS) Track: Open Innovation Timeline: MVP to be completed for evaluation on June 28, 2026.
+Project Name: Workplace Proxy (Autonomous Cognitive OS) Track: Open Innovation Timeline: MVP to be completed for evaluation on June 28, 2026.
 1. Executive Summary
-The Problem: Corporate communication is filled with implicit expectations, passive-aggressive language, and vague requests (e.g., "Hey, can you take a look at this whenever?"). For neurodivergent professionals (e.g., those with Autism or ADHD), decoding this "corporate speak" into actionable tasks is exhausting and can lead to burnout. The Solution: Build a Multi-Agent "Communication Buffer" system. Project Clarity sits between a neurodivergent employee and their workplace tools (Slack, Email, Jira). It intercepts vague communications, negotiates the actual meaning and urgency using a swarm of specialized agents, and translates the message into clear, explicit, and structured tasks tailored to the user's specific cognitive preferences.
+The Problem: Corporate communication is filled with implicit expectations, passive-aggressive language, and vague requests (e.g., "Hey, can you take a look at this whenever?"). For neurodivergent professionals (e.g., those with Autism or ADHD), decoding this "corporate speak" into actionable tasks is exhausting and can lead to burnout. The Solution: Build a Multi-Agent "Communication Buffer" system. Workplace Proxy sits between a neurodivergent employee and their workplace tools (Slack, Email, Jira). It intercepts vague communications, negotiates the actual meaning and urgency using a swarm of specialized agents, and translates the message into clear, explicit, and structured tasks tailored to the user's specific cognitive preferences.
 2. Target Audience
 * Primary End-Users: Neurodivergent professionals (ADHD, Autism) or anyone experiencing high cognitive load who struggles with unstructured communication and context-switching.
 * Buyers: B2B Enterprise HR and Accessibility & Inclusion departments looking for effective SaaS tools with a strong social impact angle.
@@ -25,7 +25,7 @@ The Problem: Corporate communication is filled with implicit expectations, passi
 
 
 Technology
-	Implementation in Project Clarity
+	Implementation in Workplace Proxy
 	Model Context Protocol (MCP)
 	Securely hooks the agent system into external mock environments like Slack, an email inbox, Jira, and Calendar. Proves agents can interact with the real world.
 	Qdrant Vector Database

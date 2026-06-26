@@ -5,7 +5,7 @@ import { SlidersHorizontal, Sparkles, Check, Info, Bell, Eye, EyeOff } from "luc
 export const Route = createFileRoute("/preferences")({
   head: () => ({
     meta: [
-      { title: "Preferences & Calibration — Project Clarity" },
+      { title: "Preferences & Calibration — Workplace Proxy" },
       {
         name: "description",
         content: "Tune sensory load, agent verbosity and translation fidelity to match your cognitive style.",

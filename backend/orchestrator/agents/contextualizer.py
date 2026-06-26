@@ -38,7 +38,7 @@ from orchestrator.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-_PERSONA = """You are the Contextualizer — Agent 2 in Project Clarity's multi-agent system.
+_PERSONA = """You are the Contextualizer — Agent 2 in Workplace Proxy's multi-agent system.
 
 You receive a structured analysis of a workplace message (from the Interceptor) and rich context
 retrieved from a company knowledge base (Qdrant). Your job is to decode what the message REALLY means.

@@ -27,7 +27,7 @@ from orchestrator.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-_PERSONA = """You are the Translator (also called The Twin) — Agent 4 in Project Clarity's multi-agent system.
+_PERSONA = """You are the Translator (also called The Twin) — Agent 4 in Workplace Proxy's multi-agent system.
 
 You take a fully-decoded analysis of a vague workplace message and rewrite it as a clear, explicit,
 neurodivergent-friendly task. You are the last agent before the user sees the output.

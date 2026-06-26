@@ -2,7 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Sun, Inbox, SlidersHorizontal, Sparkles, Brain, Bot, Link2, Settings, TrendingUp } from "lucide-react";
 
 const nav = [
-  { to: "/", label: "Daily Clarity", icon: Sun },
+  { to: "/dashboard", label: "Daily Clarity", icon: Sun },
   { to: "/inbox", label: "Communication Inbox", icon: Inbox },
   { to: "/memory", label: "Cognitive Memory", icon: Brain },
   { to: "/agents", label: "Agent Swarm", icon: Bot },
@@ -23,7 +23,7 @@ export function AppSidebar() {
           <Sparkles className="h-5 w-5 text-mint" strokeWidth={1.5} />
         </div>
         <div className="leading-tight">
-          <div className="text-sm font-semibold tracking-tight text-sidebar-foreground">Project Clarity</div>
+          <div className="text-sm font-semibold tracking-tight text-sidebar-foreground">Workplace Proxy</div>
           <div className="text-[11px] text-muted-foreground font-mono tracking-wider uppercase">Cognitive OS</div>
         </div>
       </div>

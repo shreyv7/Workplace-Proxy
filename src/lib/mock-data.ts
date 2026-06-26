@@ -301,7 +301,7 @@ export const initialMemories: MemoryEntry[] = [
     id: "mem_005",
     category: "corporate",
     title: "Onboarding Flow Mockups",
-    content: "Figma design directory is located at Figma folder: Project Clarity / Onboarding / v3-final.",
+    content: "Figma design directory is located at Figma folder: Workplace Proxy / Onboarding / v3-final.",
     last_updated: "Yesterday",
     use_count: 19,
     confidence: 93

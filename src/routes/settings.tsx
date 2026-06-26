@@ -5,7 +5,7 @@ import { Settings, Shield, Key, User, Bell, Check } from "lucide-react";
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
-      { title: "Platform Settings — Project Clarity" },
+      { title: "Platform Settings — Workplace Proxy" },
       {
         name: "description",
         content: "Configure profile defaults, swarm thresholds, and secure vector API credentials.",
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/settings")({
 
 function SystemSettingsPage() {
   const [userName, setUserName] = useState("Hackathon Developer");
-  const [userEmail, setUserEmail] = useState("dev@projectclarity.ai");
+  const [userEmail, setUserEmail] = useState("dev@workplaceproxy.ai");
   const [threshold, setThreshold] = useState(90); // Swarm consensus threshold
   const [saved, setSaved] = useState(false);
 

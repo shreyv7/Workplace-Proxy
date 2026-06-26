@@ -33,7 +33,7 @@ from orchestrator.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-_PERSONA = """You are the Scheduler — Agent 3 in Project Clarity's multi-agent system.
+_PERSONA = """You are the Scheduler — Agent 3 in Workplace Proxy's multi-agent system.
 
 You receive an enriched analysis of a workplace message and information about the user's calendar.
 Your job is to propose:

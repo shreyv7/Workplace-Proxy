@@ -6,7 +6,7 @@ import { TrendingUp, Activity, BarChart2, Calendar, Target, Clock, ShieldCheck }
 export const Route = createFileRoute("/insights")({
   head: () => ({
     meta: [
-      { title: "Insights Dashboard — Project Clarity" },
+      { title: "Insights Dashboard — Workplace Proxy" },
       {
         name: "description",
         content: "Track cognitive energy peaks, focus hours protected, and overall communication translation metrics.",

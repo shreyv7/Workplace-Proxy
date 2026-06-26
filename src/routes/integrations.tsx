@@ -6,7 +6,7 @@ import { Plug, CheckCircle2, AlertCircle, RefreshCw, Plus } from "lucide-react";
 export const Route = createFileRoute("/integrations")({
   head: () => ({
     meta: [
-      { title: "Integrations — Project Clarity" },
+      { title: "Integrations — Workplace Proxy" },
       {
         name: "description",
         content: "Manage the connected services feeding workspace data streams into the cognitive compiler.",

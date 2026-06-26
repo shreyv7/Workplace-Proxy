@@ -1,1 +1,1 @@
-"""Project Clarity — Role 2: Multi-Agent Orchestrator package."""
+"""Workplace Proxy — Role 2: Multi-Agent Orchestrator package."""
