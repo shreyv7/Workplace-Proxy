@@ -92,22 +92,22 @@ Below is the draft of the LinkedIn post from a developer's perspective, incorpor
 ```markdown
 🚀 Building a Cognitive OS for Neurodivergent Deep Work!
 
-I've been following the progress of @Anvi and @Shrey Vashistha as they actively build **Workplace Proxy** (formerly Project Clarity) for the @Google Agent Labs Hackathon, conducted by BIT Bengaluru.
+@Anvi, @Shrey Vashistha, and I are building **Workplace Proxy** (formerly Project Clarity) for the @Google Agent Labs Hackathon, conducted by BIT Bengaluru.
 
-Instead of another simple text template generator, they are building an active, protective "Communication Buffer" designed for neurodivergent professionals (ADHD/Autism) and anyone experiencing high cognitive load.
+Instead of another simple text template generator, we are building an active, protective "Communication Buffer" designed for neurodivergent professionals (ADHD/Autism) and anyone experiencing high cognitive load.
 
-Here's the technical stack they are integrating:
+Here's the technical stack we are integrating:
 🧠 **Lyzr Swarm Orchestrator**: Manages an asymmetric Agent-to-Agent (A2A) debate between four specialized Gemini-powered agents (Interceptor, Contextualizer, Scheduler, and Twin Translator) to translate messy corporate-speak into structured, actionable schedule blocks.
-⚡ **Google ADK & Gemini 2.0 Flash**: Drives the high-speed reasoning engines behind their debate consensus loop.
+⚡ **Google ADK & Gemini 2.0 Flash**: Drives the high-speed reasoning engines behind our debate consensus loop.
 💾 **Qdrant Vector Database**: Houses long-term personal formatting memory and organization jargon libraries to support real-time RAG context retrieval.
-🔌 **Model Context Protocol (MCP)**: Hooks their agent framework directly into database feeds and simulated Slack/Email/Calendar layers.
+🔌 **Model Context Protocol (MCP)**: Hooks our agent framework directly into database feeds and simulated Slack/Email/Calendar layers.
 🎨 **Next-Gen UX (React + Tailwind v4 + OGL WebGL)**: An ultra-clean, minimalist sidebar dashboard backed by a premium full-screen WebGL Strands background to visualize cognitive load levels in real time.
 
 A massive shoutout to the @HiDevs Community and the organizers at BIT Bengaluru for putting together the @Google Agent Labs Hackathon and providing a platform to push the boundaries of agentic AI.
 
-They are currently expanding on the core modules: adding direct Slack/Gmail OAuth interfaces and building a continuous reinforcement learning feedback loop from user rating adjustments.
+We are currently expanding on the core modules: adding direct Slack/Gmail OAuth interfaces and building a continuous reinforcement learning feedback loop from user rating adjustments.
 
-Check out their architecture diagram and codebase below to see what they are building! 👇
+Check out our architecture diagram and codebase below to see what we are building! 👇
 
 #GoogleAgentLabs #AI #MultiAgentSwarm #Accessibility #Qdrant #Lyzr #ADK #SoftwareEngineering #BITBengaluru #HiDevs
 ```
