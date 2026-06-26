@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PreferencesRouteImport } from './routes/preferences'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as MemoryRouteImport } from './routes/memory'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
 import { Route as InsightsRouteImport } from './routes/insights'
@@ -27,6 +28,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const PreferencesRoute = PreferencesRouteImport.update({
   id: '/preferences',
   path: '/preferences',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MemoryRoute = MemoryRouteImport.update({
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/insights': typeof InsightsRoute
   '/integrations': typeof IntegrationsRoute
   '/memory': typeof MemoryRoute
+  '/onboarding': typeof OnboardingRoute
   '/preferences': typeof PreferencesRoute
   '/settings': typeof SettingsRoute
 }
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/insights': typeof InsightsRoute
   '/integrations': typeof IntegrationsRoute
   '/memory': typeof MemoryRoute
+  '/onboarding': typeof OnboardingRoute
   '/preferences': typeof PreferencesRoute
   '/settings': typeof SettingsRoute
 }
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/insights': typeof InsightsRoute
   '/integrations': typeof IntegrationsRoute
   '/memory': typeof MemoryRoute
+  '/onboarding': typeof OnboardingRoute
   '/preferences': typeof PreferencesRoute
   '/settings': typeof SettingsRoute
 }
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/insights'
     | '/integrations'
     | '/memory'
+    | '/onboarding'
     | '/preferences'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/insights'
     | '/integrations'
     | '/memory'
+    | '/onboarding'
     | '/preferences'
     | '/settings'
   id:
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/insights'
     | '/integrations'
     | '/memory'
+    | '/onboarding'
     | '/preferences'
     | '/settings'
   fileRoutesById: FileRoutesById
@@ -143,6 +155,7 @@ export interface RootRouteChildren {
   InsightsRoute: typeof InsightsRoute
   IntegrationsRoute: typeof IntegrationsRoute
   MemoryRoute: typeof MemoryRoute
+  OnboardingRoute: typeof OnboardingRoute
   PreferencesRoute: typeof PreferencesRoute
   SettingsRoute: typeof SettingsRoute
 }
@@ -161,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/preferences'
       fullPath: '/preferences'
       preLoaderRoute: typeof PreferencesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/memory': {
@@ -223,6 +243,7 @@ const rootRouteChildren: RootRouteChildren = {
   InsightsRoute: InsightsRoute,
   IntegrationsRoute: IntegrationsRoute,
   MemoryRoute: MemoryRoute,
+  OnboardingRoute: OnboardingRoute,
   PreferencesRoute: PreferencesRoute,
   SettingsRoute: SettingsRoute,
 }

@@ -14,6 +14,10 @@ import appCss from "../styles.css?url";
 import { reportError } from "../lib/error-reporting";
 import { AppSidebar } from "../components/app-sidebar";
 import { ThemeProvider } from "../hooks/use-theme";
+import { AuthProvider } from "../../personalisation/auth/AuthProvider";
+import { AuthModal } from "../../personalisation/auth/AuthModal";
+
+
 
 // Runs synchronously before first paint — sets .dark on <html> so CSS variables
 // are correct before any React hydration, preventing flash of wrong theme.
@@ -140,24 +144,27 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const location = useLocation();
-  const isLandingPage = location.pathname === "/";
+  const isFullScreenPage = location.pathname === "/" || location.pathname === "/onboarding";
 
   return (
-    <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        {isLandingPage ? (
-          <div className="min-h-dvh bg-[#030303] text-white overflow-x-hidden">
-            <Outlet />
-          </div>
-        ) : (
-          <div className="min-h-dvh bg-background">
-            <AppSidebar />
-            <main className="md:pl-64">
+    <AuthProvider>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          {isFullScreenPage ? (
+            <div className="min-h-dvh bg-[#030303] text-white overflow-x-hidden">
               <Outlet />
-            </main>
-          </div>
-        )}
-      </QueryClientProvider>
-    </ThemeProvider>
+            </div>
+          ) : (
+            <div className="min-h-dvh bg-background">
+              <AppSidebar />
+              <main className="md:pl-64">
+                <Outlet />
+              </main>
+            </div>
+          )}
+          <AuthModal />
+        </QueryClientProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }

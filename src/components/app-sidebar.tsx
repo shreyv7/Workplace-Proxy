@@ -1,6 +1,8 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { Inbox, SlidersHorizontal, Sparkles, Brain, Bot, Link2, Settings, TrendingUp, Sun } from "lucide-react";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { Inbox, SlidersHorizontal, Sparkles, Brain, Bot, Link2, Settings, TrendingUp, Sun, LogOut } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
+import { useAuth } from "../../personalisation/auth/useAuth";
+import { supabase } from "../lib/supabase";
 
 const nav = [
   { to: "/dashboard", label: "Daily Clarity", icon: Sun },
@@ -15,6 +17,34 @@ const nav = [
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const { logout, user } = useAuth();
+
+  const handleSignOut = async () => {
+    if (user?.id) {
+      const isMock = user.id.startsWith("mock-");
+      // 1. Clear local preferences cache
+      localStorage.removeItem(`profile_${user.id}`);
+      
+      // 2. Set backend completion flag to false in Supabase so they re-onboard next time
+      if (!isMock) {
+        try {
+          await supabase
+            .from("user_profiles")
+            .update({ onboarding_completed: false })
+            .eq("user_id", user.id);
+        } catch (e) {
+          console.warn("Could not reset Supabase profile state:", e);
+        }
+      }
+    }
+    
+    // 3. Clear auth state and cookies
+    await logout();
+    
+    // 4. Redirect to landing page
+    navigate({ to: "/" });
+  };
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-sidebar-border bg-sidebar md:flex select-none">
@@ -53,9 +83,16 @@ export function AppSidebar() {
         })}
       </nav>
 
-      {/* Theme toggle */}
-      <div className="px-4 pb-2">
+      {/* Theme toggle & Sign out */}
+      <div className="px-4 pb-2 flex flex-col gap-1.5">
         <ThemeToggle />
+        <button
+          onClick={handleSignOut}
+          className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-red-500/80 hover:bg-red-500/10 hover:text-red-400 transition-all duration-200 cursor-pointer"
+        >
+          <LogOut className="h-4 w-4 opacity-80 group-hover:opacity-100 transition-opacity" strokeWidth={1.75} />
+          <span className="font-normal tracking-wide">Sign Out</span>
+        </button>
       </div>
 
       {/* Bottom Status Card */}

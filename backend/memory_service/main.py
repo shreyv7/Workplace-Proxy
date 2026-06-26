@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 from memory_service.embeddings import embed_text, get_embedding_mode
 from memory_service.qdrant_client_setup import (
     FEEDBACK_COLLECTION,
+    USER_CONTEXT_COLLECTION,
     ensure_collections,
     get_collection_stats,
     get_qdrant_client,
@@ -45,6 +46,18 @@ class FeedbackPayload(BaseModel):
     original_message: str = ""
     translated_output: str = ""
     notes: str | None = None
+
+
+class UserProfilePayload(BaseModel):
+    """Payload representing onboarding personalization data to sync with memory vector store."""
+    user_id: str
+    cognitive_profile: str
+    communication_style: str
+    peak_focus_time: str
+    working_hours_start: str
+    working_hours_end: str
+    stress_triggers: list[str]
+    urgency_preference: str
 
 
 # ── Lifespan ─────────────────────────────────────────────────────────────────
@@ -203,6 +216,73 @@ async def store_feedback(payload: FeedbackPayload):
             status_code=500,
             content={"status": "error", "message": str(e)},
         )
+
+
+@app.post("/context/user")
+async def save_user_context(payload: UserProfilePayload):
+    """
+    Upsert user onboarding preferences into the Qdrant user_context collection.
+
+    Creates a textual summary representation of the user's cognitive preferences,
+    embeds it, and saves the vector point.
+    """
+    try:
+        from qdrant_client.models import PointStruct
+        import time
+
+        # Map peak focus time to deep work block
+        deep_work_blocks = []
+        if payload.peak_focus_time == "morning":
+            deep_work_blocks = ["09:00-12:00"]
+        elif payload.peak_focus_time == "afternoon":
+            deep_work_blocks = ["13:00-16:00"]
+        elif payload.peak_focus_time == "evening":
+            deep_work_blocks = ["17:00-20:00"]
+
+        # Formulate contextual sentence for embedding
+        content = (
+            f"User profile preferences for user {payload.user_id}. "
+            f"Cognitive profile: {payload.cognitive_profile}. "
+            f"Preferred communication style (formatting style): {payload.communication_style}. "
+            f"Working hours: {payload.working_hours_start} to {payload.working_hours_end}. "
+            f"Peak focus time: {payload.peak_focus_time}. "
+            f"Stress triggers and draining patterns: {', '.join(payload.stress_triggers)}. "
+            f"Urgency interpretation preference: {payload.urgency_preference}."
+        )
+
+        vector = embed_text(content)
+        point_id = abs(hash(payload.user_id)) % (2**63)
+
+        point = PointStruct(
+            id=point_id,
+            vector=vector,
+            payload={
+                "user_id": payload.user_id,
+                "cognitive_profile": payload.cognitive_profile,
+                "formatting_style": payload.communication_style,
+                "preferred_urgency_language": payload.urgency_preference,
+                "working_hours_start": payload.working_hours_start,
+                "working_hours_end": payload.working_hours_end,
+                "deep_work_blocks": deep_work_blocks,
+                "known_triggers": payload.stress_triggers,
+                "content": content,
+                "stored_at": time.time(),
+            },
+        )
+
+        upsert_points(USER_CONTEXT_COLLECTION, [point])
+
+        return {
+            "status": "stored",
+            "user_id": payload.user_id,
+        }
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": str(e)},
+        )
+
 
 
 # ── CLI entry point ──────────────────────────────────────────────────────────
