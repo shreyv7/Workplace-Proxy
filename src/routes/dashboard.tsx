@@ -16,7 +16,7 @@ import {
   type ClarityMessage,
   type CalendarBlock,
 } from "../lib/mock-data";
-import { MessageSquare, Mail, Layers, Sparkles } from "lucide-react";
+import { MessageSquare, Mail, Layers, Sparkles, ArrowRight, HelpCircle, X, Calendar } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -38,6 +38,12 @@ function DailyClarity() {
   const [selectedMessageId, setSelectedMessageId] = useState<string>("");
   const [selectedDebateId, setSelectedDebateId] = useState<string | null>(null);
   const [isSeeding, setIsSeeding] = useState(false);
+  const [showBlueprint, setShowBlueprint] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("show_blueprint") !== "false";
+    }
+    return true;
+  });
 
   // 1. Fetch & Seed Data from Supabase
   const fetchData = async () => {
@@ -270,8 +276,19 @@ function DailyClarity() {
             <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
               Good morning, User
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Your agent swarms are active. They triaged {messages.length} inbound signals and protected your deep focus windows today.
+            <p className="mt-1.5 text-sm text-muted-foreground flex flex-wrap items-center gap-1.5">
+              <span>Your agent swarms are active. They triaged {messages.length} inbound signals and protected your deep focus windows today.</span>
+              {!showBlueprint && (
+                <button
+                  onClick={() => {
+                    setShowBlueprint(true);
+                    localStorage.setItem("show_blueprint", "true");
+                  }}
+                  className="text-xs font-semibold text-mint hover:underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <HelpCircle className="h-3.5 w-3.5" /> View System Blueprint
+                </button>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs text-muted-foreground shadow-2xs font-medium">
@@ -283,6 +300,75 @@ function DailyClarity() {
           </div>
         </header>
 
+        {/* Onboarding / System Explanation Blueprint */}
+        {showBlueprint && (
+          <div className="mb-8 relative overflow-hidden rounded-3xl border border-mint/20 bg-linear-to-r from-mint-soft/10 via-lavender-soft/5 to-transparent p-6 shadow-xs backdrop-blur-xs animate-fade-in">
+            {/* Close button */}
+            <button 
+              onClick={() => {
+                setShowBlueprint(false);
+                localStorage.setItem("show_blueprint", "false");
+              }}
+              className="absolute top-4 right-4 h-8 w-8 flex items-center justify-center rounded-full hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-all duration-200 cursor-pointer"
+              aria-label="Hide blueprint"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center">
+              <div className="max-w-md shrink-0">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-mint-soft/30 text-mint px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider font-mono">
+                  System Blueprint
+                </span>
+                <h2 className="mt-2 text-lg font-extrabold tracking-tight text-foreground">
+                  How Workplace Proxy Works
+                </h2>
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                  The cognitive workspace intercepts messy, vague inbound communications and leverages a multi-agent swarm to translate them into clear, structured calendar items and actionable lists.
+                </p>
+              </div>
+
+              {/* Blueprint Visual Flow */}
+              <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-5 items-center gap-3">
+                <div className="md:col-span-1.5 rounded-2xl border border-border bg-card p-4.5 shadow-2xs flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase font-mono">
+                    <MessageSquare className="h-3.5 w-3.5 text-emerald-500" /> 1. Chaotic Input
+                  </div>
+                  <p className="text-xs text-foreground/80 italic font-serif leading-tight">
+                    "Hey, can you double check the staging configurations whenever you have a minute?"
+                  </p>
+                </div>
+
+                <div className="md:col-span-0.5 flex justify-center text-muted-foreground/60">
+                  <ArrowRight className="h-4 w-4 rotate-90 md:rotate-0" />
+                </div>
+
+                <div className="md:col-span-1.5 rounded-2xl border border-mint/20 bg-mint-soft/10 p-4.5 shadow-2xs flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-mint uppercase font-mono">
+                    <Sparkles className="h-3.5 w-3.5 animate-pulse-soft" /> 2. Swarm Debate
+                  </div>
+                  <p className="text-xs text-foreground/90 font-medium leading-tight">
+                    Agents resolve ambiguity, estimate complexity, and build a granular checklist.
+                  </p>
+                </div>
+
+                <div className="md:col-span-0.5 flex justify-center text-muted-foreground/60">
+                  <ArrowRight className="h-4 w-4 rotate-90 md:rotate-0" />
+                </div>
+
+                <div className="md:col-span-1 rounded-2xl border border-border bg-card p-4.5 shadow-2xs flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 uppercase font-mono">
+                    <Calendar className="h-3.5 w-3.5 text-indigo-500" /> 3. Smart Block
+                  </div>
+                  <p className="text-xs text-foreground/90 font-medium leading-tight">
+                    An optimal time block is reserved, protecting focus time.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Top telemetry level KPI Cards */}
         <div className="mb-8">
           <KpiCards />
@@ -292,31 +378,36 @@ function DailyClarity() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* COLUMN 1: Original Inbound Signals (3/12 cols) */}
           <section className="lg:col-span-4 xl:col-span-3 space-y-4" aria-label="Original Signals">
-            <div className="flex items-center justify-between pb-1">
-              <div>
-                <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">Inputs</span>
-                <h2 className="text-sm font-bold text-foreground">Inbound Stream</h2>
+            <div className="flex flex-col gap-1 pb-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">Chaotic Inbox</span>
+                  <h2 className="text-sm font-bold text-foreground">Inbound Signals</h2>
+                </div>
+                <span className="text-xs text-muted-foreground font-mono">{messages.length} signals</span>
               </div>
-              <span className="text-xs text-muted-foreground font-mono">{messages.length} signals</span>
+              <p className="text-[11px] text-muted-foreground leading-tight">
+                Simulate inbound chaos by adding signals, or click an item below:
+              </p>
             </div>
 
             {/* Inbound Simulator triggers */}
             <div className="grid grid-cols-3 gap-1.5 p-1 bg-secondary/50 rounded-xl border border-border/50">
               <button 
                 onClick={() => triggerInboundSimulation("slack")}
-                className="py-2 text-[10px] font-bold rounded-lg transition-all text-center bg-card text-foreground shadow-2xs flex items-center justify-center gap-1 hover:bg-card/80"
+                className="py-2 text-[10px] font-bold rounded-lg transition-all text-center bg-card text-foreground shadow-2xs flex items-center justify-center gap-1 hover:bg-card/80 cursor-pointer"
               >
                 <MessageSquare className="h-3 w-3 text-emerald-500" /> +Slack
               </button>
               <button 
                 onClick={() => triggerInboundSimulation("email")}
-                className="py-2 text-[10px] font-bold rounded-lg transition-all text-center bg-card text-foreground shadow-2xs flex items-center justify-center gap-1 hover:bg-card/80"
+                className="py-2 text-[10px] font-bold rounded-lg transition-all text-center bg-card text-foreground shadow-2xs flex items-center justify-center gap-1 hover:bg-card/80 cursor-pointer"
               >
                 <Mail className="h-3 w-3 text-indigo-500" /> +Email
               </button>
               <button 
                 onClick={() => triggerInboundSimulation("jira")}
-                className="py-2 text-[10px] font-bold rounded-lg transition-all text-center bg-card text-foreground shadow-2xs flex items-center justify-center gap-1 hover:bg-card/80"
+                className="py-2 text-[10px] font-bold rounded-lg transition-all text-center bg-card text-foreground shadow-2xs flex items-center justify-center gap-1 hover:bg-card/80 cursor-pointer"
               >
                 <Layers className="h-3 w-3 text-blue-500" /> +Jira
               </button>
@@ -331,12 +422,17 @@ function DailyClarity() {
 
           {/* COLUMN 2: Cognitive Synthesizer (5/12 cols) */}
           <section className="lg:col-span-5 xl:col-span-5 space-y-6" aria-label="Synthesis Engine">
-            <div className="flex items-center justify-between pb-1">
-              <div>
-                <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">Synthesis</span>
-                <h2 className="text-sm font-bold text-foreground">Cognitive OS Compiler</h2>
+            <div className="flex flex-col gap-1 pb-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">AI Swarm Translation</span>
+                  <h2 className="text-sm font-bold text-foreground">Action Briefing Resolution</h2>
+                </div>
+                <span className="text-xs text-muted-foreground font-mono">Consensus resolved</span>
               </div>
-              <span className="text-xs text-muted-foreground font-mono">Consensus resolved</span>
+              <p className="text-[11px] text-muted-foreground leading-tight">
+                Inspect how the agent swarm parsed the text and mapped it to a clear task block:
+              </p>
             </div>
 
             {selectedMessage ? (
@@ -357,12 +453,17 @@ function DailyClarity() {
 
           {/* COLUMN 3: Time Allocation & Load Forecast (4/12 cols) */}
           <section className="lg:col-span-3 xl:col-span-4 space-y-6" aria-label="Time Allocation">
-            <div className="flex items-center justify-between pb-1">
-              <div>
-                <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">Timeline</span>
-                <h2 className="text-sm font-bold text-foreground">Time Protection</h2>
+            <div className="flex flex-col gap-1 pb-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">Smart Focus Calendar</span>
+                  <h2 className="text-sm font-bold text-foreground">Cognitive Protection</h2>
+                </div>
+                <span className="text-xs text-muted-foreground font-mono">09:00 – 18:00</span>
               </div>
-              <span className="text-xs text-muted-foreground font-mono">09:00 – 18:00</span>
+              <p className="text-[11px] text-muted-foreground leading-tight">
+                Blocks reserved in your calendar to prevent burnout and shield your focus.
+              </p>
             </div>
 
             <CognitiveLoadWidget />

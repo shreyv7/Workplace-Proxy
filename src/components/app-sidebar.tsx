@@ -50,12 +50,12 @@ export function AppSidebar() {
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-sidebar-border bg-sidebar md:flex select-none">
       {/* Brand Header */}
       <div className="flex items-center gap-2.5 px-6 pt-7 pb-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-mint-soft text-foreground shadow-sm transition-all duration-300 hover:scale-105">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-mint-soft/10 text-mint border border-mint/20 shadow-sm transition-all duration-300 hover:scale-105">
           <Sparkles className="h-5 w-5 text-mint" strokeWidth={1.5} />
         </div>
         <div className="leading-tight">
           <div className="text-sm font-semibold tracking-tight text-sidebar-foreground">Workplace Proxy</div>
-          <div className="text-[11px] text-muted-foreground font-mono tracking-wider uppercase">Cognitive OS</div>
+          <div className="text-[11px] text-sidebar-foreground/50 font-mono tracking-wider uppercase">Cognitive OS</div>
         </div>
       </div>
 
@@ -66,7 +66,7 @@ export function AppSidebar() {
           const active = pathname === item.to;
           return (
             <Link
-              key={item.to}
+               key={item.to}
               to={item.to}
               className={[
                 "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200",
@@ -88,15 +88,15 @@ export function AppSidebar() {
         <ThemeToggle />
         <button
           onClick={handleSignOut}
-          className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-red-500/80 hover:bg-red-500/10 hover:text-red-400 transition-all duration-200 cursor-pointer"
+          className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200 cursor-pointer"
         >
-          <LogOut className="h-4 w-4 opacity-80 group-hover:opacity-100 transition-opacity" strokeWidth={1.75} />
+          <LogOut className="h-4 w-4 opacity-85 group-hover:opacity-100 transition-opacity" strokeWidth={1.75} />
           <span className="font-normal tracking-wide">Sign Out</span>
         </button>
       </div>
 
       {/* Bottom Status Card */}
-      <div className="m-4 rounded-2xl border border-sidebar-border bg-card/40 p-4 shadow-sm backdrop-blur-sm">
+      <div className="m-4 rounded-2xl border border-sidebar-border/40 bg-sidebar-accent/20 p-4 shadow-sm backdrop-blur-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-medium text-sidebar-foreground">
             <span className="relative flex h-2 w-2">
@@ -105,23 +105,23 @@ export function AppSidebar() {
             </span>
             <span>Swarm Core Online</span>
           </div>
-          <span className="text-[10px] font-mono text-muted-foreground">v1.2.4</span>
+          <span className="text-[10px] font-mono text-sidebar-foreground/50">v1.2.4</span>
         </div>
 
-        <div className="mt-3.5 space-y-2 border-t border-sidebar-border/60 pt-3">
-          <div className="flex justify-between text-[11px] text-muted-foreground">
+        <div className="mt-3.5 space-y-2 border-t border-sidebar-border/30 pt-3">
+          <div className="flex justify-between text-[11px] text-sidebar-foreground/60">
             <span>Active Swarm</span>
-            <span className="font-medium text-foreground">4 Agent Swarms</span>
+            <span className="font-medium text-sidebar-foreground">4 Agent Swarms</span>
           </div>
-          <div className="flex justify-between text-[11px] text-muted-foreground">
+          <div className="flex justify-between text-[11px] text-sidebar-foreground/60">
             <span>Aggregated Latency</span>
-            <span className="font-medium text-foreground">58ms</span>
+            <span className="font-medium text-sidebar-foreground">58ms</span>
           </div>
-          <div className="flex justify-between text-[11px] text-muted-foreground">
+          <div className="flex justify-between text-[11px] text-sidebar-foreground/60">
             <span>Cognitive Load</span>
             <span className="font-medium text-mint font-semibold">42% (Optimal)</span>
           </div>
-          <div className="flex justify-between text-[11px] text-muted-foreground">
+          <div className="flex justify-between text-[11px] text-sidebar-foreground/60">
             <span>Consensus Confidence</span>
             <span className="font-medium text-lavender font-semibold">94%</span>
           </div>

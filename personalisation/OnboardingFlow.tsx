@@ -21,6 +21,11 @@ export const OnboardingFlow: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
 
+  const [playVideo, setPlayVideo] = useState(false);
+  const [fadeOpacity, setFadeOpacity] = useState(1);
+  const [hasStartedFadeOut, setHasStartedFadeOut] = useState(false);
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+
   // Check if onboarding is already completed, redirect if so
   useEffect(() => {
     if (isAuthenticated && user?.id) {
@@ -66,6 +71,19 @@ export const OnboardingFlow: React.FC = () => {
     }
   }, [isLoading, isAuthenticated, navigate, setShowAuthModal]);
 
+  const handleCompleteOnboarding = async () => {
+    setIsSubmitting(true);
+    try {
+      await submitAll(user?.id || "mock-user-1234");
+      // Open the cinematic video player instead of standard redirect
+      setPlayVideo(true);
+    } catch (err) {
+      console.error("Submission failed", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleNext = async () => {
     if (currentStep < 6) {
       setTransitioning(true);
@@ -74,16 +92,7 @@ export const OnboardingFlow: React.FC = () => {
         setTransitioning(false);
       }, 300); // matches transition time
     } else {
-      // Step 6: Complete onboarding
-      setIsSubmitting(true);
-      try {
-        await submitAll(user?.id || "mock-user-1234");
-        navigate({ to: "/dashboard" });
-      } catch (err) {
-        console.error("Submission failed", err);
-      } finally {
-        setIsSubmitting(false);
-      }
+      await handleCompleteOnboarding();
     }
   };
 
@@ -137,18 +146,8 @@ export const OnboardingFlow: React.FC = () => {
     }
     if (!data.urgencyPreference) updateField("urgencyPreference", "use_context");
 
-    setIsSubmitting(true);
-    try {
-      await submitAll(user?.id || "mock-user-1234");
-      navigate({ to: "/dashboard" });
-    } catch (err) {
-      console.error("Skip all submission failed", err);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Render Loading State
+    await handleCompleteOnboarding();
+  };  // Render Loading State
   if (isLoading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[#030303] text-white">
@@ -168,6 +167,45 @@ export const OnboardingFlow: React.FC = () => {
   // Step 0: Typewriter animation (Cinematic black viewport)
   if (currentStep === 0) {
     return <TypewriterIntro onComplete={() => setCurrentStep(1)} />;
+  }
+
+  if (playVideo) {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#030303] flex items-center justify-center overflow-hidden w-screen h-screen">
+        <video
+          ref={videoRef}
+          src="/phone.mp4"
+          className="w-full h-full object-cover animate-fade-in"
+          autoPlay
+          playsInline
+          onPlay={() => {
+            // Start 3 second fade-in from black
+            setFadeOpacity(0);
+          }}
+          onTimeUpdate={(e) => {
+            const video = e.currentTarget;
+            if (video.duration && video.duration - video.currentTime <= 3) {
+              if (!hasStartedFadeOut) {
+                setHasStartedFadeOut(true);
+                // Start 3 second fade-out to black
+                setFadeOpacity(1);
+              }
+            }
+          }}
+          onEnded={() => {
+            navigate({ to: "/dashboard" });
+          }}
+        />
+        {/* Black Fader Overlay */}
+        <div 
+          className="absolute inset-0 bg-[#030303] pointer-events-none transition-opacity ease-in-out"
+          style={{ 
+            opacity: fadeOpacity,
+            transitionDuration: '3000ms'
+          }}
+        />
+      </div>
+    );
   }
 
   return (
