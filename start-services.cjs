@@ -1,5 +1,12 @@
 const { spawn, exec } = require('child_process');
 const path = require('path');
+const fs = require('fs');
+
+const pythonPath = process.platform === 'win32'
+  ? path.join(__dirname, 'backend', 'venv', 'Scripts', 'python.exe')
+  : path.join(__dirname, 'backend', 'venv', 'bin', 'python');
+
+const pythonCommand = fs.existsSync(pythonPath) ? pythonPath : 'python';
 
 const services = [
   {
@@ -11,14 +18,14 @@ const services = [
   },
   {
     name: 'Orchestrator',
-    command: 'python',
+    command: pythonCommand,
     args: ['-m', 'uvicorn', 'orchestrator.main:app', '--host', '0.0.0.0', '--port', '8000'],
     cwd: path.join(__dirname, 'backend'),
     color: '\x1b[35m', // Magenta
   },
   {
     name: 'MemoryService',
-    command: 'python',
+    command: pythonCommand,
     args: ['-m', 'uvicorn', 'memory_service.main:app', '--host', '0.0.0.0', '--port', '8001'],
     cwd: path.join(__dirname, 'backend'),
     color: '\x1b[32m', // Green
