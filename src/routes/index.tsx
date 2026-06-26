@@ -1,6 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Sparkles, ArrowRight, Brain, Bot, Calendar, Cpu } from "lucide-react";
 import Strands from "../components/Strands";
+import { useAuth } from "../../personalisation/auth/useAuth";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -17,6 +19,15 @@ export const Route = createFileRoute("/")({
 });
 
 function LandingPage() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate({ to: "/onboarding" });
+    }
+  }, [isLoading, isAuthenticated, navigate]);
+
   return (
     <div className="relative h-screen w-screen bg-[#030303] text-white flex flex-col font-sans select-none overflow-hidden">
       {/* Background WebGL Animation */}
