@@ -22,54 +22,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
-    // 1. Check active session
+    // Establish initial session (also handles OAuth code exchange via detectSessionInUrl)
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
-      // Fallback to mock session if stored in localStorage
+
       if (!session) {
-        const mockUserJson = localStorage.getItem("mock_user");
-        if (mockUserJson) {
-          const mockUser = JSON.parse(mockUserJson);
-          setUser(mockUser);
-          setSession({ user: mockUser });
-        }
+        // Fall back to demo session stored by loginMock()
+        try {
+          const mockUserJson = localStorage.getItem("mock_user");
+          if (mockUserJson) {
+            const mockUser = JSON.parse(mockUserJson);
+            setUser(mockUser);
+            setSession({ user: mockUser });
+          }
+        } catch {}
       }
+
       setIsLoading(false);
     });
 
-    // 2. Listen to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // React to sign-in / sign-out events (fires after OAuth callback too)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session) {
+        // Real session established — clear any leftover demo session
         localStorage.removeItem("mock_user");
       }
       setIsLoading(false);
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const loginWithGoogle = async () => {
-    try {
-      setIsLoading(true);
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/onboarding`,
-        },
-      });
-      if (error) throw error;
-    } catch (err) {
-      console.error("Supabase OAuth error, falling back to mock login:", err);
-      loginMock();
-    } finally {
-      setIsLoading(false);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        // Supabase redirects here after Google authenticates the user.
+        // This URL must be listed in Supabase → Authentication → URL Configuration → Redirect URLs.
+        redirectTo: `${window.location.origin}/onboarding`,
+      },
+    });
+
+    if (error) {
+      // Throw so callers (AuthModal, landing page) can surface the error to the user.
+      throw error;
     }
+
+    // signInWithOAuth initiates a browser redirect to Google.
+    // Execution past this point only happens if the redirect is blocked.
   };
 
   const loginMock = () => {
@@ -88,12 +93,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    setIsLoading(true);
     await supabase.auth.signOut();
     localStorage.removeItem("mock_user");
     setUser(null);
     setSession(null);
-    setIsLoading(false);
   };
 
   return (

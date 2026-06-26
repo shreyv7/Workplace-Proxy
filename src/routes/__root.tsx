@@ -16,6 +16,7 @@ import { AppSidebar } from "../components/app-sidebar";
 import { ThemeProvider } from "../hooks/use-theme";
 import { AuthProvider } from "../../personalisation/auth/AuthProvider";
 import { AuthModal } from "../../personalisation/auth/AuthModal";
+import { AuthGuard } from "../components/auth-guard";
 
 
 
@@ -155,12 +156,14 @@ function RootComponent() {
               <Outlet />
             </div>
           ) : (
-            <div className="min-h-dvh bg-background">
-              <AppSidebar />
-              <main className="md:pl-64">
-                <Outlet />
-              </main>
-            </div>
+            <AuthGuard>
+              <div className="min-h-dvh bg-background">
+                <AppSidebar />
+                <main className="md:pl-64">
+                  <Outlet />
+                </main>
+              </div>
+            </AuthGuard>
           )}
           <AuthModal />
         </QueryClientProvider>

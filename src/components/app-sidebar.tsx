@@ -83,6 +83,34 @@ export function AppSidebar() {
         })}
       </nav>
 
+      {/* User info */}
+      {user && (
+        <div className="px-4 pb-1">
+          <div className="flex items-center gap-3 rounded-xl border border-sidebar-border/60 px-3 py-2.5 bg-sidebar-accent/10">
+            {(user.user_metadata?.avatar_url as string | undefined) ? (
+              <img
+                src={user.user_metadata.avatar_url as string}
+                alt=""
+                referrerPolicy="no-referrer"
+                className="h-7 w-7 rounded-full object-cover shrink-0 ring-1 ring-sidebar-border"
+              />
+            ) : (
+              <div className="h-7 w-7 rounded-full bg-mint-soft flex items-center justify-center shrink-0 ring-1 ring-sidebar-border">
+                <span className="text-[10px] font-bold text-mint">
+                  {((user.user_metadata?.full_name as string | undefined) ?? (user.email as string | undefined) ?? "U").charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-sidebar-foreground truncate">
+                {(user.user_metadata?.full_name as string | undefined) ?? (user.email as string | undefined)?.split("@")[0] ?? "User"}
+              </p>
+              <p className="text-[10px] text-muted-foreground truncate">{user.email as string | undefined}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Theme toggle & Sign out */}
       <div className="px-4 pb-2 flex flex-col gap-1.5">
         <ThemeToggle />
