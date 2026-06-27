@@ -96,6 +96,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem("mock_user");
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("calibrationLoaded");
+    }
     setUser(null);
     setSession(null);
   };

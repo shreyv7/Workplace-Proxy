@@ -44,7 +44,12 @@ function DailyClarity() {
   const { user } = useAuth();
   const userId = user?.id || "mock_user";
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("calibrationLoaded") !== "true";
+    }
+    return true;
+  });
   const [loadingStep, setLoadingStep] = useState(0);
   const [data, setData] = useState<DailyClarityResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -91,19 +96,24 @@ function DailyClarity() {
 
   // Loading animation triggers
   useEffect(() => {
+    if (!isLoading) return;
+
     const stepInterval = setInterval(() => {
       setLoadingStep((prev) => (prev + 1) % loadingSteps.length);
     }, 2500);
 
     const loadTimer = setTimeout(() => {
       setIsLoading(false);
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("calibrationLoaded", "true");
+      }
     }, 10000);
 
     return () => {
       clearInterval(stepInterval);
       clearTimeout(loadTimer);
     };
-  }, []);
+  }, [isLoading]);
 
   // Save notes handler
   const handleSaveNotes = async () => {
