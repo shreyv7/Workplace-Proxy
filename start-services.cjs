@@ -2,12 +2,14 @@ const { spawn, execSync, exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+let dockerComposeSuccess = true;
 // Ensure the dockerized backend stack is running before starting the frontend
 console.log('\x1b[36m[System] Ensuring Dockerized Backend Services are up and running...\x1b[0m');
 try {
   execSync('docker compose up -d', { stdio: 'inherit', cwd: __dirname });
 } catch (e) {
   console.log('\x1b[31m[System] Warning: Failed to spin up backend containers. Continuing...\x1b[0m');
+  dockerComposeSuccess = false;
 }
 
 const services = [
@@ -40,6 +42,26 @@ const services = [
     color: '\x1b[38;5;208m', // Orange
   }
 ];
+
+if (!dockerComposeSuccess) {
+  console.log('\x1b[33m[System] Docker not active. Appending local Python services (Orchestrator & MemoryService) to the runner...\x1b[0m');
+  services.push(
+    {
+      name: 'MemoryService',
+      command: path.join(__dirname, 'backend', 'venv', 'bin', 'python'),
+      args: ['-m', 'uvicorn', 'memory_service.main:app', '--host', '0.0.0.0', '--port', '8001'],
+      cwd: path.join(__dirname, 'backend'),
+      color: '\x1b[35m', // Magenta
+    },
+    {
+      name: 'Orchestrator',
+      command: path.join(__dirname, 'backend', 'venv', 'bin', 'python'),
+      args: ['-m', 'uvicorn', 'orchestrator.main:app', '--host', '0.0.0.0', '--port', '8000'],
+      cwd: path.join(__dirname, 'backend'),
+      color: '\x1b[32m', // Green
+    }
+  );
+}
 
 const children = [];
 
