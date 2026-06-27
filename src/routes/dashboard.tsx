@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { ClarityInbox } from "../components/clarity-inbox";
 import { CalendarTimeline } from "../components/calendar-timeline";
 import { TraceLog } from "../components/trace-log";
-import { KpiCards } from "../components/kpi-cards";
 import { CognitiveLoadWidget } from "../components/cognitive-load-widget";
 import { ProcessingPipeline } from "../components/processing-pipeline";
 import { TranslatedTaskCard } from "../components/translated-task-card";
@@ -497,10 +496,6 @@ function DailyClarity() {
           </div>
         )}
 
-        {/* Top telemetry level KPI Cards */}
-        <div className="mb-8">
-          <KpiCards />
-        </div>
 
         {/* Tab selection */}
         <div className="flex border-b border-border/80 mb-8 gap-6">

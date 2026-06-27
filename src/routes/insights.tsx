@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { kpiStats, cognitiveLoad } from "../lib/mock-data";
 import { TrendingUp, Activity, BarChart2, Calendar, Target, Clock, ShieldCheck } from "lucide-react";
+import { KpiCards } from "../components/kpi-cards";
 
 export const Route = createFileRoute("/insights")({
   head: () => ({
@@ -61,42 +62,8 @@ function InsightsPage() {
       </header>
 
       {/* Stats Summary Panel */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Est. Time Reclaimed</span>
-            <Clock className="h-4.5 w-4.5 text-indigo-500" />
-          </div>
-          <p className="text-3xl font-extrabold tracking-tight text-foreground">{kpiStats.hours_saved} Hours</p>
-          <span className="text-xs text-emerald-500 font-medium bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-full w-max">
-            +3.5h this week
-          </span>
-          <p className="text-xs text-muted-foreground mt-1">Based on email threads intercepted and calendar auto-locks.</p>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Cognitive Friction</span>
-            <Activity className="h-4.5 w-4.5 text-mint" />
-          </div>
-          <p className="text-3xl font-extrabold tracking-tight text-foreground">-18%</p>
-          <span className="text-xs text-emerald-500 font-medium bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-full w-max">
-            Optimal bounds
-          </span>
-          <p className="text-xs text-muted-foreground mt-1">Calculated via task overload intervals and context switches blocked.</p>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Workspace Clarity Score</span>
-            <Target className="h-4.5 w-4.5 text-amber-500" />
-          </div>
-          <p className="text-3xl font-extrabold tracking-tight text-foreground">{kpiStats.clarity_score}/100</p>
-          <span className="text-xs text-indigo-500 font-medium bg-indigo-50 dark:bg-indigo-950/20 px-2 py-0.5 rounded-full w-max">
-            96% Consensus Cert
-          </span>
-          <p className="text-xs text-muted-foreground mt-1">Percentage of incoming signals resolved with zero user intervention.</p>
-        </div>
+      <div className="mb-8">
+        <KpiCards />
       </div>
 
       {/* Sparkline & Charts layout */}
