@@ -229,28 +229,32 @@ function IntegrationsSettings() {
             <div
               key={it.id}
               className={[
-                "group relative rounded-2xl border border-border bg-card p-6 shadow-[0_8px_30px_rgb(0,0,0,0.03)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-300 flex flex-col gap-4 animate-scale-in",
+                "group relative overflow-hidden rounded-[24px] border border-white/10 dark:border-white/5 bg-gradient-to-b from-card to-card/50 p-7 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] hover:-translate-y-1.5 transition-all duration-500 flex flex-col gap-6 animate-scale-in",
                 (!isConnected && !isConfigurable) ? "opacity-50 saturate-50 hover:opacity-80 transition-all" : ""
               ].join(" ")}
               style={{ animationDelay: `${idx * 40}ms` }}
             >
+              {/* Dynamic hover gradient */}
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
               {/* Top metadata */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary/80 text-xl shadow-2xs group-hover:scale-105 transition-transform duration-300">
-                    {it.icon}
+              <div className="relative flex items-start justify-between gap-4 z-10">
+                <div className="flex items-center gap-4">
+                  <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-secondary to-secondary/40 text-2xl shadow-lg border border-white/20 dark:border-white/10 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
+                    <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 mix-blend-overlay rounded-2xl" />
+                    <span className="relative z-10">{it.icon}</span>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-foreground tracking-tight">{it.name}</h3>
-                    <p className="text-[10px] text-muted-foreground font-mono">Sync latency: {it.latency}</p>
+                  <div className="flex flex-col justify-center">
+                    <h3 className="text-base font-extrabold text-foreground tracking-tight group-hover:text-primary transition-colors duration-300">{it.name}</h3>
+                    <p className="text-[11px] text-muted-foreground font-mono mt-0.5 opacity-80 group-hover:opacity-100 transition-opacity">Latency: {it.latency}</p>
                   </div>
                 </div>
 
                 <span className={[
-                  "px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide flex items-center gap-1 border",
+                  "px-3 py-1.5 rounded-full text-[10px] font-extrabold tracking-widest uppercase flex items-center gap-1.5 border shadow-sm backdrop-blur-md transition-all duration-300",
                   isConnected 
-                    ? "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30"
-                    : "bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30"
+                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)] dark:text-emerald-400"
+                    : "bg-rose-500/10 text-rose-600 border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.15)] dark:text-rose-400"
                 ].join(" ")}>
                   {isConnected ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
                   {it.status}
@@ -258,18 +262,18 @@ function IntegrationsSettings() {
               </div>
 
               {/* Description */}
-              <p className="text-xs text-muted-foreground leading-relaxed">
+              <p className="relative z-10 text-sm text-muted-foreground leading-relaxed">
                 {it.description}
               </p>
 
               {/* Permissions list */}
-              <div className="space-y-1.5">
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Active scopes</p>
-                <div className="flex flex-wrap gap-1.5">
+              <div className="relative z-10 space-y-2.5">
+                <p className="text-[10px] font-extrabold text-muted-foreground/70 uppercase tracking-widest">Active scopes</p>
+                <div className="flex flex-wrap gap-2">
                   {it.permissions.map((perm) => (
                     <span
                       key={perm}
-                      className="text-[9px] font-mono px-2 py-0.5 rounded bg-secondary/60 text-muted-foreground border border-border/40"
+                      className="text-[11px] font-medium px-3 py-1 rounded-lg bg-secondary/50 text-secondary-foreground/90 border border-border/50 group-hover:border-border/80 group-hover:bg-secondary transition-all duration-300"
                     >
                       {perm}
                     </span>
@@ -278,14 +282,14 @@ function IntegrationsSettings() {
               </div>
 
               {/* Footer controls */}
-              <div className="border-t border-border/50 pt-4 mt-auto flex items-center justify-between text-[11px]">
-                <span className="text-muted-foreground font-mono">Synced {it.last_sync}</span>
+              <div className="relative z-10 border-t border-border/40 pt-5 mt-auto flex items-center justify-between text-xs">
+                <span className="text-muted-foreground font-mono text-[10px] uppercase tracking-wider opacity-70 group-hover:opacity-100 transition-opacity">Synced {it.last_sync}</span>
                 
-                <div className="flex gap-2">
+                <div className="flex gap-2.5">
                   <button
                     onClick={() => triggerSync(it.id)}
                     disabled={isSyncing}
-                    className="h-8 px-3 rounded-lg border border-border bg-card hover:bg-secondary/40 text-muted-foreground hover:text-foreground font-semibold flex items-center gap-1.5 transition-colors text-[11px]"
+                    className="h-9 px-4 rounded-xl border border-border/50 bg-background/50 backdrop-blur-sm hover:bg-foreground hover:text-background hover:border-foreground hover:shadow-lg font-bold flex items-center gap-2 transition-all duration-300"
                   >
                     <RefreshCw className={["h-3.5 w-3.5", isSyncing ? "animate-spin text-mint" : ""].join(" ")} />
                     Sync
@@ -293,7 +297,7 @@ function IntegrationsSettings() {
                   {isConfigurable && (
                     <button
                       onClick={() => handleOpenConfigure(it.id)}
-                      className="h-8 px-3 rounded-lg border border-border bg-card hover:bg-secondary/40 text-muted-foreground hover:text-foreground font-semibold transition-colors text-[11px]"
+                      className="h-9 px-4 rounded-xl border border-transparent bg-foreground text-background shadow-md hover:shadow-xl hover:-translate-y-0.5 hover:bg-primary font-bold transition-all duration-300"
                     >
                       Configure
                     </button>
