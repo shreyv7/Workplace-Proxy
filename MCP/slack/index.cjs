@@ -109,7 +109,7 @@ function startPolling() {
             // Fallback dictionary for known demo user IDs when users:read scope is missing
             const SENDER_FALLBACKS = {
               "U0BD4GY8B8F": "Shrey Vashistha",
-              "U0BDDSL7UQ3": "Boss Tom"
+              "U0BDDSL7UQ3": "Devansh"
             };
 
             // Fetch user profile info

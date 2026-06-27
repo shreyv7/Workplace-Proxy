@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useAuth } from "../../personalisation/auth/AuthProvider";
 import {
   getDailyClarity,
@@ -9,6 +10,7 @@ import {
   type PriorityTask,
   type DailyClarityResponse,
 } from "../lib/api";
+import { supabase } from "../lib/supabase";
 import {
   CalendarDays,
   Clock,
@@ -38,56 +40,15 @@ export const Route = createFileRoute("/dashboard")({
   component: DailyClarity,
 });
 
-const loadingAnimationSrcDoc = `
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      html, body {
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        overflow: hidden;
-        background: transparent;
-      }
-      canvas {
-        width: 100% !important;
-        height: 100% !important;
-        display: block;
-        background: transparent;
-      }
-    </style>
-    <script src="https://unpkg.com/@lottiefiles/dotlottie-web/dist/dotlottie-web.js"></script>
-  </head>
-  <body>
-    <canvas id="loading-animation"></canvas>
-    <script>
-      new DotLottie({
-        canvas: document.getElementById("loading-animation"),
-        src: "https://lottie.host/embed/af715c09-b2c4-4c13-a08d-782831435e21/AdNwcE8RRC.lottie",
-        autoplay: true,
-        loop: true,
-        backgroundColor: "transparent",
-        layout: { fit: "contain", align: [0.5, 0.5] }
-      });
-    </script>
-  </body>
-</html>
-`;
-
 function DailyClarity() {
   const { user } = useAuth();
   const userId = user?.id || "mock_user";
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
-  
-  // Loading & calibration states
   const [isLoading, setIsLoading] = useState(true);
   const [loadingStep, setLoadingStep] = useState(0);
   const [data, setData] = useState<DailyClarityResponse | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   
-  // UI Notes and reschedule states
   const [notes, setNotes] = useState("");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [selectedEvent, setSelectedEvent] = useState<NormalizedEvent | null>(null);
@@ -101,18 +62,26 @@ function DailyClarity() {
 
   // Fetch daily clarity data
   const loadClarityData = useCallback(async () => {
+    setLoadError(null);
     try {
-      const googleToken = (window as any).supabaseSession?.provider_token || undefined;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const googleToken = session?.provider_token ?? undefined;
       const res = await getDailyClarity(date, userId, googleToken);
       setData(res);
       setNotes(res.notes || "");
-      if (res.schedule_blocks.length > 0 && !selectedEvent) {
-        // Auto-select first meeting block or first event
-        const firstMeeting = res.schedule_blocks.find(b => b.block_type === "meeting");
-        setSelectedEvent(firstMeeting || res.schedule_blocks[0]);
-      }
+      setSelectedEvent((current) => {
+        if (current) {
+          const matching = res.schedule_blocks.find((block) => block.id === current.id);
+          if (matching) return matching;
+        }
+        const firstMeeting = res.schedule_blocks.find((block) => block.block_type === "meeting");
+        return firstMeeting || res.schedule_blocks[0] || null;
+      });
     } catch (err) {
       console.error("Failed to load daily clarity:", err);
+      setLoadError("Daily Clarity could not load right now.");
     }
   }, [date, userId]);
 
@@ -188,20 +157,16 @@ function DailyClarity() {
           <div className="absolute -left-1/4 -top-1/4 w-96 h-96 rounded-full bg-mint/10 blur-[120px] animate-pulse" />
           <div className="absolute -right-1/4 -bottom-1/4 w-96 h-96 rounded-full bg-lavender/10 blur-[120px] animate-pulse" style={{ animationDelay: '1.5s' }} />
 
-          <div className="relative z-10 flex w-full max-w-4xl flex-col items-center text-center">
-            {/* Open animation stage */}
-            <div className="relative flex w-full min-h-[420px] items-center justify-center rounded-[2rem] border border-border/50 bg-gradient-to-br from-background/75 via-card/75 to-secondary/20 px-6 py-8 shadow-[0_0_40px_rgba(var(--color-border),0.16)] overflow-visible">
-              <iframe
-                srcDoc={loadingAnimationSrcDoc}
-                style={{
-                  width: "min(78vw, 640px)",
-                  height: "min(78vw, 640px)",
-                  border: "none",
-                  background: "transparent",
-                }}
-                title="AI Robot Lottie Animation"
-                className="pointer-events-none"
-              />
+          <div className="relative z-10 flex w-full max-w-5xl flex-col items-center text-center">
+            <div className="relative flex w-full min-h-[420px] items-center justify-center rounded-[2rem] border border-border/50 bg-gradient-to-br from-background/75 via-card/75 to-secondary/20 px-6 py-8 shadow-[0_0_40px_rgba(var(--color-border),0.16)] overflow-hidden">
+              <div className="absolute inset-x-10 inset-y-8 rounded-[1.75rem] border border-border/40 bg-[radial-gradient(circle_at_top,rgba(28,244,194,0.06),transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))]" />
+              <div className="relative z-10 h-[min(76vw,560px)] w-[min(76vw,560px)]">
+                <DotLottieReact
+                  src="https://lottie.host/af715c09-b2c4-4c13-a08d-782831435e21/AdNwcE8RRC.lottie"
+                  autoplay
+                  loop
+                />
+              </div>
             </div>
 
             {/* Connection Telemetry Badge */}
@@ -233,7 +198,7 @@ function DailyClarity() {
                 Good morning, {user?.email?.split("@")[0] || "Planner"}!
               </h1>
               <p className="text-xs text-muted-foreground font-mono mt-1 max-w-2xl leading-relaxed">
-                🎯 {data?.summary}
+                {loadError ? <span className="text-rose-400">{loadError}</span> : <>🎯 {data?.summary}</>}
               </p>
             </div>
 
@@ -268,7 +233,7 @@ function DailyClarity() {
 
                 {/* Timeline schedule slots */}
                 <div className="flex flex-col gap-3.5">
-                  {data?.schedule_blocks.map((block) => {
+                  {data?.schedule_blocks?.map((block) => {
                     const isMeeting = block.block_type === "meeting";
                     const isSelected = selectedEvent?.id === block.id;
                     const hasConflict = block.conflict_level === "medium" || block.conflict_level === "high";
@@ -383,7 +348,7 @@ function DailyClarity() {
                 </div>
 
                 <div className="flex flex-col gap-3">
-                  {data?.top_priorities.map((task) => (
+                  {data?.top_priorities?.map((task) => (
                     <div
                       key={task.id}
                       className="p-3 rounded-xl bg-background/35 border border-border/40 hover:border-border/80 transition-all flex flex-col gap-2"

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
-import { CheckCircle2, AlertCircle, RefreshCw, Loader2, ExternalLink, X } from "lucide-react";
+import { CheckCircle2, AlertCircle, RefreshCw, Loader2, ExternalLink, X, FileText } from "lucide-react";
 import { useAuth } from "../../personalisation/auth/useAuth";
 import {
   type IntegrationService,
@@ -108,6 +108,76 @@ const INTEGRATION_DEFS: IntegrationDef[] = [
   },
 ];
 
+const WHITEPAPER_SECTIONS = [
+  {
+    title: "What this setup actually does",
+    body:
+      "This page connects your real work systems to Workplace Proxy's MCP layer. In the current build, Google Calendar and Gmail connect through Google OAuth, Slack can be configured against your own Slack app and bot token flow, and WhatsApp Business connects through Meta Cloud API credentials plus a webhook listener on your machine.",
+  },
+  {
+    title: "Shared prerequisites",
+    body:
+      "Keep this app running locally, because the integration servers expect localhost endpoints. In this workspace the MCP ports are 3000 for Slack, 3001 for Gmail, 3002 for Google Calendar, and 3003 for WhatsApp Business. You should also have access to the relevant Google account, Slack workspace, and Meta developer assets before starting.",
+  },
+  {
+    title: "Google Calendar",
+    body:
+      "In Google Cloud Console, create or reuse one project, enable Google Calendar API, and configure an OAuth consent screen. The official Google OAuth docs require a web application client with approved redirect URIs. For this workspace, Calendar uses the frontend reconnect flow and the local Calendar MCP server lives on localhost:3002. The app requests calendar read access only, using the calendar.readonly scope, so the user can grant least-privilege access.",
+    bullets: [
+      "Google Cloud Console → create a project or select an existing one.",
+      "Enable Google Calendar API.",
+      "Configure OAuth consent screen and add yourself as a test user if the app is still unverified.",
+      "Create a Web application OAuth client.",
+      "Make sure your auth stack allows the reconnect flow used by this app, and keep the local Calendar MCP available on `http://localhost:3002`.",
+      "From this page, click `Connect` on Google Calendar and complete Google consent.",
+    ],
+  },
+  {
+    title: "Gmail",
+    body:
+      "Gmail follows the same Google Cloud project pattern, but with Gmail API enabled and Gmail read-only scope. Google's current Gmail auth guidance still expects OAuth 2.0 credentials and explicit scope approval. In this codebase, Gmail is treated as a separate reconnect action and the local Gmail MCP service is expected at localhost:3001.",
+    bullets: [
+      "Enable Gmail API in the same Google Cloud project.",
+      "Use the same OAuth consent screen and keep the user added as a test user if needed.",
+      "Grant only the Gmail read access needed for thread ingestion.",
+      "Keep the Gmail MCP server available on `http://localhost:3001`.",
+      "Click `Connect` on Gmail in this UI and finish the Google consent step.",
+    ],
+  },
+  {
+    title: "Slack",
+    body:
+      "Slack requires a Slack app tied to your workspace. The local code expects bot-style access, not a personal user token. Official Slack OAuth v2 docs require a configured redirect URL and granted bot scopes before installation. This workspace supports local server-side OAuth on `http://localhost:3000/oauth/callback`, and the UI can also be configured with the bot token and channel IDs you want monitored.",
+    bullets: [
+      "Create a Slack app in your workspace at Slack's developer console.",
+      "Add bot scopes: `channels:history`, `channels:read`, `users:read`. The local MCP also includes `chat:write` in its OAuth request for future actions.",
+      "Add redirect URL `http://localhost:3000/oauth/callback` in Slack OAuth settings.",
+      "Install the app to your workspace and obtain the bot token if you are using manual configuration.",
+      "Invite the bot to each channel you want monitored.",
+      "Copy the Slack channel IDs and use `Configure` in this page to save the token and channels.",
+    ],
+  },
+  {
+    title: "WhatsApp Business",
+    body:
+      "WhatsApp Business in this project uses Meta's WhatsApp Cloud API model. Official Meta docs require a Meta app, a WhatsApp product, a callback URL, and a verify token for webhook validation. The local MCP server listens on `http://localhost:3003/webhook`, so for real inbound events you need a public tunnel such as ngrok that forwards to port 3003. The UI stores three items: access token, phone number ID, and webhook verify token.",
+    bullets: [
+      "Create a Meta app and add the WhatsApp product.",
+      "Generate or copy a valid Cloud API access token.",
+      "Copy the WhatsApp phone number ID from the Meta dashboard.",
+      "Choose a verify token string you control.",
+      "Expose local port `3003` publicly using a tunnel, then place that public `/webhook` URL into the Meta webhook configuration.",
+      "During webhook verification, the verify token in Meta must exactly match the token entered into this page.",
+      "After saving config here, send a test WhatsApp message to confirm inbound payloads reach the local MCP.",
+    ],
+  },
+  {
+    title: "What can fail most often",
+    body:
+      "Most connection failures on this page come from one of five things: the local MCP server is not running, the redirect URL does not exactly match the platform configuration, the wrong Google or Slack workspace account is used during consent, WhatsApp webhook verification tokens do not match, or the local port is not exposed publicly for Meta callbacks.",
+  },
+];
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function IntegrationsPage() {
@@ -119,6 +189,7 @@ function IntegrationsPage() {
   const [loadingState, setLoadingState] = useState(true);
   const [error, setError]           = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+  const [showWhitepaper, setShowWhitepaper] = useState(false);
 
   // Modal states for manual Slack configuration
   const [configuringSlack, setConfiguringSlack] = useState(false);
@@ -426,13 +497,22 @@ function IntegrationsPage() {
             OAuth-authenticated MCP bridges for Calendar, Gmail, and Slack. Powered by real API calls.
           </p>
         </div>
-        <button
-          className="inline-flex items-center gap-2 rounded-xl bg-foreground text-background hover:opacity-90 text-xs font-semibold px-4 py-2.5 transition-all shadow-sm"
-          onClick={refreshStatuses}
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-          Refresh All
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            className="inline-flex items-center gap-2 rounded-xl border border-border bg-card text-foreground hover:bg-secondary/50 text-xs font-semibold px-4 py-2.5 transition-all shadow-sm"
+            onClick={() => setShowWhitepaper(true)}
+          >
+            <FileText className="h-3.5 w-3.5" />
+            Read whitepaper
+          </button>
+          <button
+            className="inline-flex items-center gap-2 rounded-xl bg-foreground text-background hover:opacity-90 text-xs font-semibold px-4 py-2.5 transition-all shadow-sm"
+            onClick={refreshStatuses}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh All
+          </button>
+        </div>
       </header>
 
       {/* Notification banner */}
@@ -459,11 +539,17 @@ function IntegrationsPage() {
           const connected  = !!(status?.connected);
           const isSyncing  = syncing === def.id;
           const isConnecting = connecting === def.id;
+          const isUnavailable = ["github", "jira", "linear"].includes(String(def.id));
 
           return (
             <div
               key={def.id}
-              className="group relative rounded-2xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:shadow-md flex flex-col gap-4 animate-scale-in"
+              className={[
+                "group relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-sm transition-all duration-300 flex flex-col gap-4 animate-scale-in",
+                isUnavailable
+                  ? "opacity-[0.72] saturate-[0.4]"
+                  : "hover:shadow-md",
+              ].join(" ")}
               style={{ animationDelay: `${idx * 40}ms` }}
             >
               {/* Loading overlay */}
@@ -473,8 +559,15 @@ function IntegrationsPage() {
                 </div>
               )}
 
+              {isUnavailable && !loadingState && (
+                <div
+                  className="pointer-events-none absolute inset-0 z-[1] rounded-2xl bg-gradient-to-br from-slate-100/78 via-white/60 to-slate-300/74 dark:from-slate-200/26 dark:via-white/16 dark:to-slate-100/24 backdrop-blur-[1.5px]"
+                  aria-hidden="true"
+                />
+              )}
+
               {/* Top metadata */}
-              <div className="flex items-start justify-between gap-3">
+              <div className="relative z-[2] flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary/80 text-xl shadow-2xs group-hover:scale-105 transition-transform duration-300">
                     {def.icon}
@@ -504,10 +597,10 @@ function IntegrationsPage() {
               </div>
 
               {/* Description */}
-              <p className="text-xs text-muted-foreground leading-relaxed">{def.description}</p>
+              <p className="relative z-[2] text-xs text-muted-foreground leading-relaxed">{def.description}</p>
 
               {/* Scopes */}
-              <div className="space-y-1.5">
+              <div className="relative z-[2] space-y-1.5">
                 <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
                   {connected && status?.scopes?.length ? "Granted scopes" : "Required scopes"}
                 </p>
@@ -525,13 +618,13 @@ function IntegrationsPage() {
 
               {/* Connected-at */}
               {connected && status?.connected_at && (
-                <p className="text-[10px] text-muted-foreground font-mono">
+                <p className="relative z-[2] text-[10px] text-muted-foreground font-mono">
                   Connected {new Date(status.connected_at).toLocaleString()}
                 </p>
               )}
 
               {/* Footer controls */}
-              <div className="border-t border-border/50 pt-4 mt-auto flex items-center justify-between text-[11px]">
+              <div className="relative z-[2] border-t border-border/50 pt-4 mt-auto flex items-center justify-between text-[11px]">
                 <span className="text-muted-foreground font-mono">
                   {connected ? "Active" : (def.id === "slack" || def.id === "whatsapp") ? "Requires Setup" : def.managed ? "Requires OAuth" : "Coming soon"}
                 </span>
@@ -606,6 +699,74 @@ function IntegrationsPage() {
       )}
 
       {/* Configure Slack Modal */}
+      {showWhitepaper && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setShowWhitepaper(false)} />
+
+          <div className="relative w-full max-w-4xl overflow-hidden rounded-[28px] border border-border bg-card shadow-2xl animate-in fade-in zoom-in-95">
+            <button
+              onClick={() => setShowWhitepaper(false)}
+              className="absolute right-4 top-4 rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="max-h-[86vh] overflow-y-auto px-6 py-6 sm:px-8 sm:py-8">
+              <header className="mb-8 border-b border-border/60 pb-5 pr-10">
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-mono uppercase tracking-[0.28em] text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-400">
+                  User Setup Whitepaper
+                </span>
+                <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+                  How to connect your real integrations
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                  This guide is written for the end user who wants these four integrations to work on their own machine. It combines the exact assumptions in this workspace with current official setup expectations from Google, Slack, and Meta.
+                </p>
+              </header>
+
+              <div className="space-y-5">
+                {WHITEPAPER_SECTIONS.map((section) => (
+                  <section key={section.title} className="rounded-2xl border border-border/60 bg-secondary/20 p-5 sm:p-6">
+                    <h3 className="text-sm font-bold tracking-tight text-foreground sm:text-base">
+                      {section.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                      {section.body}
+                    </p>
+                    {section.bullets && (
+                      <ul className="mt-4 space-y-2.5">
+                        {section.bullets.map((bullet) => (
+                          <li key={bullet} className="flex items-start gap-2.5 text-sm leading-6 text-foreground/88">
+                            <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-400" />
+                            <span>{bullet}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                ))}
+              </div>
+
+              <footer className="mt-8 rounded-2xl border border-border/60 bg-card px-5 py-4 text-xs leading-6 text-muted-foreground">
+                Official references used for this modal:
+                {" "}
+                <a className="text-foreground underline underline-offset-4" href="https://developers.google.com/identity/protocols/oauth2/web-server" target="_blank" rel="noreferrer">Google OAuth web server docs</a>,
+                {" "}
+                <a className="text-foreground underline underline-offset-4" href="https://developers.google.com/workspace/gmail/api/auth/scopes" target="_blank" rel="noreferrer">Gmail scopes</a>,
+                {" "}
+                <a className="text-foreground underline underline-offset-4" href="https://api.slack.com/authentication/oauth-v2" target="_blank" rel="noreferrer">Slack OAuth v2</a>,
+                {" "}
+                <a className="text-foreground underline underline-offset-4" href="https://developers.facebook.com/documentation/business-messaging/whatsapp/get-started" target="_blank" rel="noreferrer">WhatsApp Cloud API getting started</a>,
+                {" "}
+                and
+                {" "}
+                <a className="text-foreground underline underline-offset-4" href="https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/create-webhook-endpoint/" target="_blank" rel="noreferrer">Meta webhook setup</a>.
+              </footer>
+            </div>
+          </div>
+        </div>
+      )}
+
       {configuringSlack && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setConfiguringSlack(false)} />
