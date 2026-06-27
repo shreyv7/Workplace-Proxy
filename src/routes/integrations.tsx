@@ -4,6 +4,12 @@ import { initialIntegrations, Integration } from "../lib/mock-data";
 import { Plug, CheckCircle2, AlertCircle, RefreshCw, Plus, X, Settings2, Key, HelpCircle } from "lucide-react";
 
 export const Route = createFileRoute("/integrations")({
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      integration: search.integration as string | undefined,
+      status: search.status as string | undefined,
+    };
+  },
   head: () => ({
     meta: [
       { title: "Integrations — Workplace Proxy" },
@@ -73,6 +79,20 @@ function IntegrationsSettings() {
     );
     setIntegrations(updated);
   };
+
+  const { integration, status } = Route.useSearch();
+
+  useEffect(() => {
+    if (integration && status === "success") {
+      const integrationName = integration === "calendar" ? "Google Calendar" : "Email/Gmail";
+      setFeedbackMsg({
+        type: "success",
+        text: `Successfully authenticated ${integrationName}!`,
+      });
+      const id = integration === "calendar" ? "int_calendar" : "int_email";
+      setConfiguringId(id);
+    }
+  }, [integration, status]);
 
   useEffect(() => {
     checkHealth();
