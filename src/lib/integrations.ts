@@ -83,10 +83,10 @@ const CALENDAR_MCP_URL = 'http://localhost:3002';
 
 export async function checkSlackMCPConnected(): Promise<boolean> {
   try {
-    const resp = await fetch(`${SLACK_MCP_URL}/oauth/status`);
+    const resp = await fetch(`${SLACK_MCP_URL}/health`);
     if (!resp.ok) return false;
     const data = await resp.json();
-    return !!(data as { connected?: boolean }).connected;
+    return !!(data.configured);
   } catch {
     return false;
   }
