@@ -10,6 +10,7 @@ import { TranslatedTaskCard } from "../components/translated-task-card";
 import { AgentDebateModal } from "../components/agent-debate-modal";
 import { supabase } from "../lib/supabase";
 import { sendRawMessageToSwarm } from "../lib/api-bridge";
+import { useAuth } from "../../personalisation/auth/AuthProvider";
 import {
   initialMessages,
   initialCalendar,
@@ -33,6 +34,7 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DailyClarity() {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<ClarityMessage[]>([]);
   const [calendar, setCalendar] = useState<CalendarBlock[]>([]);
   const [selectedMessageId, setSelectedMessageId] = useState<string>("");
@@ -272,27 +274,28 @@ function DailyClarity() {
 
   // 4. Mock Inbound Trigger Simulations
   const triggerInboundSimulation = async (type: "slack" | "email" | "jira") => {
+    const userId = user?.id || "usr_clarity_101";
     if (type === "slack") {
       await sendRawMessageToSwarm({
         source: "slack",
         sender_name: "Boss Tom",
         sender_role: "Engineering Director",
         content: "Hey, can you double check the staging configurations whenever you have a minute? Also check the deployment checklist.",
-      });
+      }, userId);
     } else if (type === "email") {
       await sendRawMessageToSwarm({
         source: "email",
         sender_name: "External Client",
         sender_role: "Account Lead",
         content: "Hi, following up on our roadmap alignment call. Are you available sometime tomorrow around 3 PM?",
-      });
+      }, userId);
     } else {
       await sendRawMessageToSwarm({
         source: "jira",
         sender_name: "Sprint Triage",
         sender_role: "Product Manager",
         content: "Critical: Revisit the onboarding flow feedback from QA. Need to lower gradient saturation before staging push.",
-      });
+      }, userId);
     }
   };
 

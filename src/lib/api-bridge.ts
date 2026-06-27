@@ -10,7 +10,7 @@ export type InboundPayload = {
 
 const FASTAPI_URL = "http://localhost:8000/api/v1/process";
 
-export async function sendRawMessageToSwarm(payload: InboundPayload) {
+export async function sendRawMessageToSwarm(payload: InboundPayload, userId?: string) {
   const msgId = payload.message_id || `msg_sim_${Date.now().toString().slice(-4)}`;
   const timestampIso = new Date().toISOString();
   
@@ -23,7 +23,7 @@ export async function sendRawMessageToSwarm(payload: InboundPayload) {
     content: payload.content,
     timestamp: timestampIso,
     thread_context: [],
-    user_id: "usr_clarity_101" // Required by Pydantic model
+    user_id: userId || "usr_clarity_101" // Required by Pydantic model
   };
 
   try {
