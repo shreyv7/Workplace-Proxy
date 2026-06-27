@@ -51,16 +51,17 @@ def get_qdrant_client() -> QdrantClient:
         qdrant_host = os.getenv("QDRANT_HOST")
         qdrant_port = os.getenv("QDRANT_PORT", "6333")
         qdrant_url = os.getenv("QDRANT_URL")
+        qdrant_api_key = os.getenv("QDRANT_API_KEY")
 
         if qdrant_url or qdrant_host:
             try:
                 if qdrant_url:
-                    client = QdrantClient(url=qdrant_url, timeout=5.0)
+                    client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key, timeout=5.0)
                     client.get_collections()  # Ping/verify connection
                     _client = client
                     print(f"[qdrant] Connected to Qdrant server at URL: {qdrant_url}")
                 else:
-                    client = QdrantClient(host=qdrant_host, port=int(qdrant_port), timeout=5.0)
+                    client = QdrantClient(host=qdrant_host, port=int(qdrant_port), api_key=qdrant_api_key, timeout=5.0)
                     client.get_collections()  # Ping/verify connection
                     _client = client
                     print(f"[qdrant] Connected to Qdrant server at host: {qdrant_host}:{qdrant_port}")

@@ -12,6 +12,7 @@ import {
   LogOut,
   ChevronRight,
   Cpu,
+  FlaskConical,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "./theme-toggle";
@@ -46,9 +47,10 @@ const navSections = [
       { to: "/memory", label: "Cognitive Memory", icon: Brain },
       { to: "/agents", label: "Agent Swarm", icon: Bot },
       { to: "/settings", label: "Platform Settings", icon: Settings },
+      { to: "/test-ui-gcp", label: "GCP Integration Test", icon: FlaskConical },
     ],
   },
-] as const;
+];
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
