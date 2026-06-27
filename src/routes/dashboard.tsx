@@ -39,6 +39,7 @@ function DailyClarity() {
   const [calendar, setCalendar] = useState<CalendarBlock[]>([]);
   const [selectedMessageId, setSelectedMessageId] = useState<string>("");
   const [selectedDebateId, setSelectedDebateId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"triage" | "calendar">("triage");
   const [isSeeding, setIsSeeding] = useState(false);
   const [showBlueprint, setShowBlueprint] = useState(() => {
     if (typeof window !== "undefined") {
@@ -62,63 +63,73 @@ function DailyClarity() {
         .select("*")
         .order("created_at", { ascending: true });
 
-      // Auto-seed if Supabase database is completely empty
-      if ((!dbMessages || dbMessages.length === 0) && !isSeeding) {
+      // Auto-seed if Supabase database is completely empty and there is mock data to seed
+      if ((!dbMessages || dbMessages.length === 0) && !isSeeding && (initialMessages.length > 0 || initialCalendar.length > 0)) {
         setIsSeeding(true);
-        // Insert seed messages
-        const formattedSeedMsgs = initialMessages.map(m => ({
-          message_id: m.message_id,
-          sender_name: m.sender_name,
-          sender_role: m.sender_role,
-          timestamp: m.timestamp,
-          original_text: m.original_text,
-          source: m.source,
-          importance: m.importance,
-          ambiguity: m.ambiguity,
-          agent_assigned: m.agent_assigned,
-          translation_status: m.translation_status,
-          action: m.translated_bullet_points.action,
-          complexity: m.translated_bullet_points.complexity,
-          expected_duration: m.translated_bullet_points.expected_duration,
-          steps: m.translated_bullet_points.steps,
-          suggested_start_time: m.suggested_start_time,
-          suggested_end_time: m.suggested_end_time,
-          fidelity_rating: m.fidelity_rating,
-          acknowledged: m.acknowledged,
-          reasoning: m.reasoning,
-          debate_id: m.debate_id
-        }));
+        
+        if (initialMessages.length > 0) {
+          // Insert seed messages
+          const formattedSeedMsgs = initialMessages.map(m => ({
+            message_id: m.message_id,
+            sender_name: m.sender_name,
+            sender_role: m.sender_role,
+            timestamp: m.timestamp,
+            original_text: m.original_text,
+            source: m.source,
+            importance: m.importance,
+            ambiguity: m.ambiguity,
+            agent_assigned: m.agent_assigned,
+            translation_status: m.translation_status,
+            action: m.translated_bullet_points.action,
+            complexity: m.translated_bullet_points.complexity,
+            expected_duration: m.translated_bullet_points.expected_duration,
+            steps: m.translated_bullet_points.steps,
+            suggested_start_time: m.suggested_start_time,
+            suggested_end_time: m.suggested_end_time,
+            fidelity_rating: m.fidelity_rating,
+            acknowledged: m.acknowledged,
+            reasoning: m.reasoning,
+            debate_id: m.debate_id
+          }));
+          await supabase.from("messages").insert(formattedSeedMsgs);
+        }
 
-        await supabase.from("messages").insert(formattedSeedMsgs);
+        const blocksToInsert = [];
+        if (initialCalendar.length > 0) {
+          const formattedSeedCal = initialCalendar.map(c => ({
+            id: c.id,
+            start: c.start,
+            "end": c.end,
+            title: c.title,
+            type: c.type,
+            source_message_id: c.source_message_id || null,
+            acknowledged: c.acknowledged || false,
+            agent_generated: c.agent_generated || false,
+            confidence: c.confidence || null,
+            reason: c.reason || null
+          }));
+          blocksToInsert.push(...formattedSeedCal);
+        }
 
-        // Insert seed calendar blocks
-        const formattedSeedCal = initialCalendar.map(c => ({
-          id: c.id,
-          start: c.start,
-          "end": c.end,
-          title: c.title,
-          type: c.type,
-          source_message_id: c.source_message_id || null,
-          acknowledged: c.acknowledged || false,
-          agent_generated: c.agent_generated || false,
-          confidence: c.confidence || null,
-          reason: c.reason || null
-        }));
+        if (initialMessages.length > 0) {
+          const messageTasks = initialMessages.map(m => ({
+            id: `task_${m.message_id}`,
+            start: m.suggested_start_time,
+            "end": m.suggested_end_time,
+            title: m.translated_bullet_points.action,
+            type: "task",
+            source_message_id: m.message_id,
+            acknowledged: m.acknowledged,
+            agent_generated: true,
+            confidence: 94,
+            reason: m.reasoning
+          }));
+          blocksToInsert.push(...messageTasks);
+        }
 
-        const messageTasks = initialMessages.map(m => ({
-          id: `task_${m.message_id}`,
-          start: m.suggested_start_time,
-          "end": m.suggested_end_time,
-          title: m.translated_bullet_points.action,
-          type: "task",
-          source_message_id: m.message_id,
-          acknowledged: m.acknowledged,
-          agent_generated: true,
-          confidence: 94,
-          reason: m.reasoning
-        }));
-
-        await supabase.from("calendar_blocks").insert([...formattedSeedCal, ...messageTasks]);
+        if (blocksToInsert.length > 0) {
+          await supabase.from("calendar_blocks").insert(blocksToInsert);
+        }
 
         // Refetch after inserting
         const { data: newMsgs } = await supabase.from("messages").select("*").order("created_at", { ascending: true });
@@ -233,42 +244,124 @@ function DailyClarity() {
   };
 
   const handleAcknowledge = async (messageId: string) => {
-    // 1. Update Supabase messages table
-    await supabase
-      .from("messages")
-      .update({ acknowledged: true })
-      .eq("message_id", messageId);
+    // Optimistically update the UI state immediately
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.message_id === messageId ? { ...m, acknowledged: true } : m
+      )
+    );
 
-    // 2. Update Supabase calendar table
-    await supabase
-      .from("calendar_blocks")
-      .update({ acknowledged: true })
-      .eq("source_message_id", messageId);
+    const exists = calendar.some((c) => c.source_message_id === messageId);
+    if (exists) {
+      setCalendar((prev) =>
+        prev.map((c) =>
+          c.source_message_id === messageId ? { ...c, acknowledged: true } : c
+        )
+      );
+    } else {
+      const msg = messages.find((m) => m.message_id === messageId);
+      if (msg) {
+        setCalendar((prev) => [
+          ...prev,
+          {
+            id: `task_${messageId}`,
+            start: msg.suggested_start_time,
+            end: msg.suggested_end_time,
+            title: msg.translated_bullet_points.action,
+            type: "task",
+            source_message_id: messageId,
+            acknowledged: true,
+            agent_generated: true,
+            confidence: 94,
+            reason: msg.reasoning
+          }
+        ]);
+      }
+    }
 
-    // 3. Sync to real Google Calendar if block exists
-    const block = calendar.find((b) => b.source_message_id === messageId);
-    if (block) {
-      await syncToGoogleCalendar(block.title, block.start, block.end, block.reason || "");
+    try {
+      // 1. Update Supabase messages table
+      await supabase
+        .from("messages")
+        .update({ acknowledged: true })
+        .eq("message_id", messageId);
+
+      // 2. Update Supabase calendar table or insert if missing
+      const blockExists = calendar.some((b) => b.source_message_id === messageId);
+      if (blockExists) {
+        await supabase
+          .from("calendar_blocks")
+          .update({ acknowledged: true })
+          .eq("source_message_id", messageId);
+
+        // 3. Sync to real Google Calendar
+        const block = calendar.find((b) => b.source_message_id === messageId);
+        if (block) {
+          await syncToGoogleCalendar(block.title, block.start, block.end, block.reason || "");
+        }
+      } else {
+        const msg = messages.find((m) => m.message_id === messageId);
+        if (msg) {
+          const newBlock = {
+            id: `task_${messageId}`,
+            start: msg.suggested_start_time,
+            end: msg.suggested_end_time,
+            title: msg.translated_bullet_points.action,
+            type: "task",
+            source_message_id: messageId,
+            acknowledged: true,
+            agent_generated: true,
+            confidence: 94,
+            reason: msg.reasoning
+          };
+          await supabase.from("calendar_blocks").insert(newBlock);
+          await syncToGoogleCalendar(newBlock.title, newBlock.start, newBlock.end, newBlock.reason);
+        }
+      }
+    } catch (e) {
+      console.error("Database connection issue: ", e);
+      // Revert/refresh on error
+      fetchData();
     }
   };
 
   const handleCalendarAck = async (blockId: string) => {
-    await supabase
-      .from("calendar_blocks")
-      .update({ acknowledged: true })
-      .eq("id", blockId);
+    // Optimistically update the UI state immediately
+    setCalendar((prev) =>
+      prev.map((c) => (c.id === blockId ? { ...c, acknowledged: true } : c))
+    );
+    const targetBlock = calendar.find((b) => b.id === blockId);
+    if (targetBlock && targetBlock.source_message_id) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.message_id === targetBlock.source_message_id
+            ? { ...m, acknowledged: true }
+            : m
+        )
+      );
+    }
 
-    // Check if block was created from a signal, and update that signal too
-    const block = calendar.find((b) => b.id === blockId);
-    if (block) {
-      await syncToGoogleCalendar(block.title, block.start, block.end, block.reason || "");
-      
-      if (block.source_message_id) {
-        await supabase
-          .from("messages")
-          .update({ acknowledged: true })
-          .eq("message_id", block.source_message_id);
+    try {
+      await supabase
+        .from("calendar_blocks")
+        .update({ acknowledged: true })
+        .eq("id", blockId);
+
+      // Check if block was created from a signal, and update that signal too
+      if (targetBlock) {
+        await syncToGoogleCalendar(targetBlock.title, targetBlock.start, targetBlock.end, targetBlock.reason || "");
+        
+        if (targetBlock.source_message_id) {
+          await supabase
+            .from("messages")
+            .update({ acknowledged: true })
+            .eq("message_id", targetBlock.source_message_id);
+        }
       }
+    } catch (e) {
+      console.error("Database connection issue: ", e);
+      // Revert/refresh on error
+      fetchData();
     }
   };
 
@@ -409,120 +502,167 @@ function DailyClarity() {
           <KpiCards />
         </div>
 
-        {/* 3-Column command layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* COLUMN 1: Original Inbound Signals (3/12 cols) */}
-          <section className="lg:col-span-4 xl:col-span-3 space-y-4" aria-label="Original Signals">
-            <div className="flex flex-col gap-1 pb-1">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">Chaotic Inbox</span>
-                  <h2 className="text-sm font-bold text-foreground">Inbound Signals</h2>
-                </div>
-                <span className="text-xs text-muted-foreground font-mono">{messages.length} signals</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground leading-tight">
-                Simulate inbound chaos by adding signals, or click an item below:
-              </p>
-            </div>
-
-            {/* Inbound Simulator triggers */}
-            <div className="grid grid-cols-3 gap-1.5 p-1 bg-secondary/50 rounded-xl border border-border/50">
-              <button 
-                onClick={() => triggerInboundSimulation("slack")}
-                className="py-2 text-[10px] font-bold rounded-lg transition-all text-center bg-card text-foreground shadow-2xs flex items-center justify-center gap-1 hover:bg-card/80 cursor-pointer"
-              >
-                <MessageSquare className="h-3 w-3 text-emerald-500" /> +Slack
-              </button>
-              <button 
-                onClick={() => triggerInboundSimulation("email")}
-                className="py-2 text-[10px] font-bold rounded-lg transition-all text-center bg-card text-foreground shadow-2xs flex items-center justify-center gap-1 hover:bg-card/80 cursor-pointer"
-              >
-                <Mail className="h-3 w-3 text-indigo-500" /> +Email
-              </button>
-              <button 
-                onClick={() => triggerInboundSimulation("jira")}
-                className="py-2 text-[10px] font-bold rounded-lg transition-all text-center bg-card text-foreground shadow-2xs flex items-center justify-center gap-1 hover:bg-card/80 cursor-pointer"
-              >
-                <Layers className="h-3 w-3 text-blue-500" /> +Jira
-              </button>
-            </div>
-
-            <ClarityInbox
-              messages={messages}
-              selectedMessageId={selectedMessageId}
-              onSelectMessage={setSelectedMessageId}
-            />
-          </section>
-
-          {/* COLUMN 2: Cognitive Synthesizer (5/12 cols) */}
-          <section className="lg:col-span-5 xl:col-span-5 space-y-6" aria-label="Synthesis Engine">
-            <div className="flex flex-col gap-1 pb-1">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">AI Swarm Translation</span>
-                  <h2 className="text-sm font-bold text-foreground">Action Briefing Resolution</h2>
-                </div>
-                <span className="text-xs text-muted-foreground font-mono">Consensus resolved</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground leading-tight">
-                Inspect how the agent swarm parsed the text and mapped it to a clear task block:
-              </p>
-            </div>
-
-            {selectedMessage ? (
-              <div className="space-y-6">
-                <TranslatedTaskCard
-                  message={selectedMessage}
-                  onAcknowledge={handleAcknowledge}
-                  onOpenDebate={setSelectedDebateId}
-                />
-                <ProcessingPipeline />
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-border border-dashed bg-card/40 p-8 text-center text-muted-foreground">
-                Select an inbound signal to view cognitive compilation stages.
-              </div>
-            )}
-          </section>
-
-          {/* COLUMN 3: Time Allocation & Load Forecast (4/12 cols) */}
-          <section className="lg:col-span-3 xl:col-span-4 space-y-6" aria-label="Time Allocation">
-            <div className="flex flex-col gap-1 pb-1">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">Smart Focus Calendar</span>
-                  <h2 className="text-sm font-bold text-foreground">Cognitive Protection</h2>
-                </div>
-                <span className="text-xs text-muted-foreground font-mono">09:00 – 18:00</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground leading-tight">
-                Blocks reserved in your calendar to prevent burnout and shield your focus.
-              </p>
-            </div>
-
-            <CognitiveLoadWidget />
-
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <CalendarTimeline blocks={calendar} onAcknowledge={handleCalendarAck} />
-              
-              <div className="mt-5 flex flex-wrap gap-2 text-[10px] font-medium text-muted-foreground justify-center">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/80 px-2 py-0.5 border border-border">
-                  <span className="h-2 w-2 rounded-sm bg-deep-focus" /> Deep Work
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/80 px-2 py-0.5 border border-border">
-                  <span className="h-2 w-2 rounded-sm bg-amber-soft" /> Draft Task
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/80 px-2 py-0.5 border border-border">
-                  <span className="h-2 w-2 rounded-sm bg-mint" /> Scheduled
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/80 px-2 py-0.5 border border-border">
-                  <span className="h-2 w-2 rounded-sm bg-lavender" /> Sync
-                </span>
-              </div>
-            </div>
-          </section>
+        {/* Tab selection */}
+        <div className="flex border-b border-border/80 mb-8 gap-6">
+          <button
+            onClick={() => setActiveTab("triage")}
+            className={[
+              "pb-3 text-xs uppercase font-mono tracking-widest transition-all border-b-2 relative -bottom-[2px] cursor-pointer",
+              activeTab === "triage"
+                ? "border-mint text-foreground font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            ].join(" ")}
+          >
+            Triage Inbox
+          </button>
+          <button
+            onClick={() => setActiveTab("calendar")}
+            className={[
+              "pb-3 text-xs uppercase font-mono tracking-widest transition-all border-b-2 relative -bottom-[2px] cursor-pointer",
+              activeTab === "calendar"
+                ? "border-mint text-foreground font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            ].join(" ")}
+          >
+            Focus Calendar
+          </button>
         </div>
+
+        {activeTab === "triage" ? (
+          /* Triage Inbox View */
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* COLUMN 1: Original Inbound Signals (expanded for spacing) */}
+            <section className="lg:col-span-5 xl:col-span-4 space-y-4 animate-scale-in" aria-label="Original Signals">
+              <div className="flex flex-col gap-1 pb-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">Your inbox</span>
+                    <h2 className="text-sm font-bold text-foreground">Inbound Signals</h2>
+                  </div>
+                  <span className="text-xs text-muted-foreground font-mono">{messages.length} signals</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Simulate inbound chaos by adding signals, or click an item below:
+                </p>
+              </div>
+
+              {/* Inbound Simulator triggers */}
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-secondary/50 rounded-xl border border-border/50">
+                <button 
+                  onClick={() => triggerInboundSimulation("slack")}
+                  className="py-2 text-[10px] font-bold rounded-lg transition-all text-center bg-card text-foreground shadow-2xs flex items-center justify-center gap-1 hover:bg-card/80 cursor-pointer"
+                >
+                  <MessageSquare className="h-3 w-3 text-emerald-500" /> +Slack
+                </button>
+                <button 
+                  onClick={() => triggerInboundSimulation("email")}
+                  className="py-2 text-[10px] font-bold rounded-lg transition-all text-center bg-card text-foreground shadow-2xs flex items-center justify-center gap-1 hover:bg-card/80 cursor-pointer"
+                >
+                  <Mail className="h-3 w-3 text-indigo-500" /> +Email
+                </button>
+                <button 
+                  onClick={() => triggerInboundSimulation("jira")}
+                  className="py-2 text-[10px] font-bold rounded-lg transition-all text-center bg-card text-foreground shadow-2xs flex items-center justify-center gap-1 hover:bg-card/80 cursor-pointer"
+                >
+                  <Layers className="h-3 w-3 text-blue-500" /> +Jira
+                </button>
+              </div>
+
+              <ClarityInbox
+                messages={messages}
+                selectedMessageId={selectedMessageId}
+                onSelectMessage={setSelectedMessageId}
+              />
+            </section>
+
+            {/* COLUMN 2: Cognitive Synthesizer (expanded for layout breathability) */}
+            <section className="lg:col-span-7 xl:col-span-8 space-y-6 animate-scale-in" aria-label="Synthesis Engine">
+              <div className="flex flex-col gap-1 pb-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">AI Swarm Translation</span>
+                    <h2 className="text-sm font-bold text-foreground">Action Briefing Resolution</h2>
+                  </div>
+                  <span className="text-xs text-muted-foreground font-mono">Consensus resolved</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Inspect how the agent swarm parsed the text and mapped it to a clear task block:
+                </p>
+              </div>
+
+              {selectedMessage ? (
+                <div className="space-y-6">
+                  <TranslatedTaskCard
+                    message={selectedMessage}
+                    onAcknowledge={handleAcknowledge}
+                    onOpenDebate={setSelectedDebateId}
+                  />
+                  <ProcessingPipeline />
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-border border-dashed bg-card/40 p-8 text-center text-muted-foreground">
+                  Select an inbound signal to view cognitive compilation stages.
+                </div>
+              )}
+            </section>
+          </div>
+        ) : (
+          /* Focus Calendar View */
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* COLUMN 1: Smart Focus Calendar (takes 8/12 or 9/12 cols for a spacious timeline layout) */}
+            <section className="lg:col-span-8 xl:col-span-9 space-y-6 animate-scale-in" aria-label="Smart Focus Calendar">
+              <div className="flex flex-col gap-1 pb-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">Smart Focus Calendar</span>
+                    <h2 className="text-sm font-bold text-foreground">Cognitive Protection</h2>
+                  </div>
+                  <span className="text-xs text-muted-foreground font-mono">09:00 – 18:00</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Blocks reserved in your calendar to prevent burnout and shield your focus.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                <CalendarTimeline blocks={calendar} onAcknowledge={handleCalendarAck} />
+                
+                <div className="mt-5 flex flex-wrap gap-2 text-[10px] font-medium text-muted-foreground justify-center">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/80 px-2 py-0.5 border border-border">
+                    <span className="h-2 w-2 rounded-sm bg-deep-focus" /> Deep Work
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/80 px-2 py-0.5 border border-border">
+                    <span className="h-2 w-2 rounded-sm bg-amber-soft" /> Draft Task
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/80 px-2 py-0.5 border border-border">
+                    <span className="h-2 w-2 rounded-sm bg-mint" /> Scheduled
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/80 px-2 py-0.5 border border-border">
+                    <span className="h-2 w-2 rounded-sm bg-lavender" /> Sync
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            {/* COLUMN 2: Cognitive Telemetry & Load Widget */}
+            <section className="lg:col-span-4 xl:col-span-3 space-y-6 animate-scale-in" aria-label="Cognitive Telemetry">
+              <div className="flex flex-col gap-1 pb-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">Cognitive Telemetry</span>
+                    <h2 className="text-sm font-bold text-foreground">Load & Energy</h2>
+                  </div>
+                  <span className="text-[10px] font-mono text-muted-foreground uppercase bg-secondary/50 px-2 py-0.5 rounded-full">Live</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Forcasted metrics indicating energy reserve depletion limits.
+                </p>
+              </div>
+
+              <CognitiveLoadWidget />
+            </section>
+          </div>
+        )}
       </div>
 
       <TraceLog />

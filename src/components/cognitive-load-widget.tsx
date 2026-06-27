@@ -40,8 +40,8 @@ export function CognitiveLoadWidget() {
 
       <div className="flex flex-col items-center justify-center pt-2">
         {/* Semi-circular gauge */}
-        <div className="relative flex items-center justify-center h-28 w-44 overflow-hidden">
-          <svg className="absolute top-0 left-0 w-full h-full transform -rotate-180" viewBox="0 0 120 70">
+        <div className="relative flex items-center justify-center h-24 w-44 overflow-hidden">
+          <svg className="absolute top-0 left-0 w-full h-full" viewBox="0 0 120 70">
             {/* Background Track */}
             <circle
               cx="60"
@@ -52,6 +52,7 @@ export function CognitiveLoadWidget() {
               strokeDasharray={semiCircumference}
               strokeDashoffset="0"
               strokeLinecap="round"
+              transform="rotate(180 60 60)"
             />
             {/* Active Indication */}
             <circle
@@ -63,13 +64,27 @@ export function CognitiveLoadWidget() {
               strokeDasharray={semiCircumference}
               strokeDashoffset={strokeDashoffset}
               strokeLinecap="round"
+              transform="rotate(180 60 60)"
             />
+            {/* Value Text */}
+            <text
+              x="60"
+              y="44"
+              textAnchor="middle"
+              className="fill-foreground font-extrabold text-[22px] tracking-tight"
+            >
+              {current_load}%
+            </text>
+            {/* Status Text */}
+            <text
+              x="60"
+              y="56"
+              textAnchor="middle"
+              className={`fill-current ${textColor} text-[9px] font-bold uppercase tracking-wider`}
+            >
+              {status}
+            </text>
           </svg>
-          
-          <div className="absolute bottom-0 text-center pb-2">
-            <span className="text-3xl font-extrabold tracking-tight text-foreground">{current_load}%</span>
-            <p className={`text-xs font-semibold ${textColor} uppercase tracking-wider mt-1`}>{status}</p>
-          </div>
         </div>
 
         {/* Weekly Load Sparks */}
