@@ -229,8 +229,8 @@ function IntegrationsSettings() {
             <div
               key={it.id}
               className={[
-                "group relative rounded-2xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:shadow-md flex flex-col gap-4 animate-scale-in",
-                (!isConnected && !isConfigurable) ? "opacity-50 saturate-50 hover:opacity-80 transition-opacity" : ""
+                "group relative rounded-2xl border border-border bg-card p-6 shadow-[0_8px_30px_rgb(0,0,0,0.03)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-300 flex flex-col gap-4 animate-scale-in",
+                (!isConnected && !isConfigurable) ? "opacity-50 saturate-50 hover:opacity-80 transition-all" : ""
               ].join(" ")}
               style={{ animationDelay: `${idx * 40}ms` }}
             >
