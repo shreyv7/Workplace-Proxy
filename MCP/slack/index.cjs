@@ -16,6 +16,7 @@ const STATE_PATH = path.join(__dirname, "state.json");
 let webClient = null;
 let channels = [];
 let pollingInterval = null;
+const lastIngestedSlackMessages = [];
 
 // Load configuration
 function loadConfig() {
@@ -102,6 +103,18 @@ function startPolling() {
             const msgId = `msg_slack_${clientMsgId}`;
 
             console.log(`Slack Ingested Message: ${msgId} from ${senderName}`);
+            
+            // Log to test UI memory array
+            lastIngestedSlackMessages.unshift({
+              msgId,
+              senderName,
+              text: msg.text,
+              ts: new Date(parseFloat(msg.ts) * 1000).toISOString(),
+              channelId,
+              rawPayload: msg
+            });
+            if (lastIngestedSlackMessages.length > 20) lastIngestedSlackMessages.pop();
+
             await processInboundSlackMessage(msgId, senderName, msg.text, msg.ts, channelId);
           }
 
@@ -292,6 +305,120 @@ app.post("/disconnect", (req, res) => {
   if (fs.existsSync(STATE_PATH)) fs.unlinkSync(STATE_PATH);
 
   res.json({ success: true, message: "Slack integration disconnected successfully." });
+});
+
+// ── Test Page showing Slack Data ──
+app.get("/test-ui", (req, res) => {
+  let messagesHtml = "";
+  if (lastIngestedSlackMessages.length === 0) {
+    messagesHtml = `
+      <div class="text-center py-16 border border-dashed border-gray-800 rounded-2xl">
+        <p class="text-gray-500 text-sm">No Slack messages have been ingested since the server started.</p>
+        <p class="text-xs text-gray-600 mt-1">Send a message in your configured Slack channel to trigger polling.</p>
+      </div>
+    `;
+  } else {
+    messagesHtml = `<div class="space-y-4">` + lastIngestedSlackMessages.map(msg => `
+      <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-5 hover:border-amber-500/30 transition-all duration-300">
+        <div class="flex justify-between items-start gap-4 mb-3">
+          <div>
+            <span class="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md">${msg.senderName}</span>
+            <span class="text-[10px] text-gray-500 font-mono ml-2">${msg.msgId}</span>
+          </div>
+          <span class="text-[10px] text-gray-500 font-mono">${new Date(msg.ts).toLocaleTimeString()}</span>
+        </div>
+        <p class="text-sm text-gray-200 bg-gray-900/40 p-3.5 rounded-xl border border-gray-900/50 leading-relaxed font-sans mb-3">${msg.text}</p>
+        
+        <details class="text-[11px] text-gray-400">
+          <summary class="cursor-pointer hover:text-white font-semibold outline-hidden select-none">View Raw Slack Payload JSON</summary>
+          <pre class="bg-gray-900/50 p-4 rounded-xl mt-2 overflow-x-auto code-font text-amber-300/90 text-xs border border-gray-850">${JSON.stringify(msg.rawPayload, null, 2)}</pre>
+        </details>
+      </div>
+    `).join("") + `</div>`;
+  }
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Slack MCP Test Harness</title>
+      <script src="https://cdn.tailwindcss.com"></script>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+      <style>
+        body {
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          background-color: #0b0f19;
+          color: #f3f4f6;
+        }
+        .code-font {
+          font-family: 'JetBrains Mono', monospace;
+        }
+      </style>
+    </head>
+    <body class="p-8 min-h-screen">
+      <div class="max-w-6xl mx-auto">
+        <header class="mb-10 flex justify-between items-center border-b border-gray-800 pb-6">
+          <div>
+            <h1 class="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Slack MCP Test Harness</h1>
+            <p class="text-gray-400 mt-2 text-sm">Real-time Slack polling debugger and ingested payload inspector.</p>
+          </div>
+          <div class="bg-gray-900/80 border border-gray-800 rounded-2xl px-5 py-3 text-right">
+            <span class="text-[10px] font-bold tracking-widest text-amber-500 uppercase block">Polling Interval</span>
+            <span class="text-xl font-extrabold text-white mt-1 block">20 Seconds</span>
+          </div>
+        </header>
+
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <!-- Left side: Status & Config -->
+          <div class="space-y-6">
+            <div class="bg-gray-900/50 border border-gray-800/80 rounded-3xl p-6 backdrop-blur-xl">
+              <h2 class="text-lg font-bold mb-4">MCP Health Status</h2>
+              <div class="space-y-4 text-sm">
+                <div class="flex justify-between py-2 border-b border-gray-850">
+                  <span class="text-gray-400">Connection State:</span>
+                  <span class="text-emerald-400 font-bold flex items-center gap-1.5">
+                    <span class="h-2 w-2 rounded-full bg-emerald-400 animate-ping"></span> Active Polling
+                  </span>
+                </div>
+                <div class="flex justify-between py-2 border-b border-gray-850">
+                  <span class="text-gray-400">Configured:</span>
+                  <span class="font-mono">${webClient ? "Yes (Token Valid)" : "No"}</span>
+                </div>
+                <div class="flex justify-between py-2">
+                  <span class="text-gray-400">Monitored Channels:</span>
+                  <span class="font-mono text-amber-400 font-bold">${channels.join(", ") || "None"}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-gray-900/50 border border-gray-800/80 rounded-3xl p-6 backdrop-blur-xl">
+              <h2 class="text-lg font-bold mb-3">API References</h2>
+              <p class="text-xs text-gray-400 leading-relaxed mb-4">This server acts as a middleware bridge, transforming incoming Slack webhook-equivalent history segments into structured agent cognitive prompts.</p>
+              <a href="/health" class="inline-flex items-center text-xs text-amber-400 hover:text-amber-300 font-semibold gap-1">
+                View Server Health JSON &rarr;
+              </a>
+            </div>
+          </div>
+
+          <!-- Right side: Ingested Payloads -->
+          <div class="lg:col-span-2 space-y-6">
+            <div class="bg-gray-900/50 border border-gray-800/80 rounded-3xl p-6 backdrop-blur-xl">
+              <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">Ingested Slack Payloads</h2>
+                <span class="px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-xs font-bold font-mono">Last 20 Runs</span>
+              </div>
+
+              ${messagesHtml}
+            </div>
+          </div>
+        </section>
+      </div>
+    </body>
+    </html>
+  `;
+  res.send(html);
 });
 
 app.listen(PORT, () => {
