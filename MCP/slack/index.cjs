@@ -17,6 +17,22 @@ let webClient = null;
 let channels = [];
 let pollingInterval = null;
 const lastIngestedSlackMessages = [];
+const channelNameCache = {};
+
+async function getChannelName(channelId) {
+  if (channelNameCache[channelId]) return channelNameCache[channelId];
+  if (!webClient) return channelId;
+  try {
+    const info = await webClient.conversations.info({ channel: channelId });
+    if (info.ok && info.channel) {
+      channelNameCache[channelId] = info.channel.name;
+      return info.channel.name;
+    }
+  } catch (e) {
+    console.error("Failed to fetch channel info for ID:", channelId, e);
+  }
+  return channelId;
+}
 
 // Load configuration
 function loadConfig() {
@@ -102,7 +118,9 @@ function startPolling() {
             const clientMsgId = msg.client_msg_id || msg.ts.replace(".", "_");
             const msgId = `msg_slack_${clientMsgId}`;
 
-            console.log(`Slack Ingested Message: ${msgId} from ${senderName}`);
+            const channelName = await getChannelName(channelId);
+
+            console.log(`Slack Ingested Message: ${msgId} from ${senderName} in #${channelName}`);
             
             // Log to test UI memory array
             lastIngestedSlackMessages.unshift({
@@ -111,7 +129,11 @@ function startPolling() {
               text: msg.text,
               ts: new Date(parseFloat(msg.ts) * 1000).toISOString(),
               channelId,
-              rawPayload: msg
+              rawPayload: {
+                ...msg,
+                user_name: senderName,
+                channel_name: channelName
+              }
             });
             if (lastIngestedSlackMessages.length > 20) lastIngestedSlackMessages.pop();
 
