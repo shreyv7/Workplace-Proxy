@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TestUiGcpRouteImport } from './routes/test-ui-gcp'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PreferencesRouteImport } from './routes/preferences'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
@@ -18,9 +19,13 @@ import { Route as InsightsRouteImport } from './routes/insights'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AgentsRouteImport } from './routes/agents'
-import { Route as TestUiGcpRouteImport } from './routes/test-ui-gcp'
 import { Route as IndexRouteImport } from './routes/index'
 
+const TestUiGcpRoute = TestUiGcpRouteImport.update({
+  id: '/test-ui-gcp',
+  path: '/test-ui-gcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -64,11 +69,6 @@ const DashboardRoute = DashboardRouteImport.update({
 const AgentsRoute = AgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TestUiGcpRoute = TestUiGcpRouteImport.update({
-  id: '/test-ui-gcp',
-  path: '/test-ui-gcp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -175,6 +175,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/test-ui-gcp': {
+      id: '/test-ui-gcp'
+      path: '/test-ui-gcp'
+      fullPath: '/test-ui-gcp'
+      preLoaderRoute: typeof TestUiGcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -243,13 +250,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/test-ui-gcp': {
-      id: '/test-ui-gcp'
-      path: '/test-ui-gcp'
-      fullPath: '/test-ui-gcp'
-      preLoaderRoute: typeof TestUiGcpRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

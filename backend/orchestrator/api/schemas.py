@@ -70,6 +70,14 @@ class ProcessRequest(BaseModel):
         ...,
         description="ID of the neurodivergent user who received the message"
     )
+    google_access_token: str | None = Field(
+        None,
+        description=(
+            "Google OAuth access token from the frontend Supabase session (provider_token). "
+            "Forwarded as Authorization: Bearer to Calendar MCP and Gmail MCP servers. "
+            "When absent, MCP servers fall back to GOOGLE_ACCESS_TOKEN env var or demo mode."
+        ),
+    )
 
 
 class FeedbackRequest(BaseModel):
@@ -200,6 +208,35 @@ class HealthResponse(BaseModel):
         default_factory=dict,
         description="Status of each downstream dependency: 'ok' or 'unavailable'"
     )
+
+
+# ── Generate-reply models (POST /api/v1/generate-reply) ──────────────────────
+
+class ToneType(str, Enum):
+    PROFESSIONAL = "professional"
+    CASUAL = "casual"
+    CONCISE = "concise"
+
+
+class ReplyDraft(BaseModel):
+    text: str
+    tone: ToneType
+    word_count: int
+
+
+class GenerateReplyRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    message_id: str
+    original_content: str
+    sender_name: str
+    tone: ToneType | None = ToneType.PROFESSIONAL
+    additional_context: str | None = None
+
+
+class GenerateReplyResponse(BaseModel):
+    success: bool
+    drafts: list[ReplyDraft]
 
 
 # ── Internal pipeline models (not exposed via API) ────────────────────────────

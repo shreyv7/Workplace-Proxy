@@ -15,10 +15,13 @@ from orchestrator.api.schemas import (
     FeedbackResponse,
     GCPTestRequest,
     GCPTestResponse,
+    GenerateReplyRequest,
+    GenerateReplyResponse,
     HealthResponse,
     MCPServiceResult,
     ProcessRequest,
     ProcessResponse,
+    ReplyDraft,
 )
 from orchestrator.config.settings import Settings, get_settings
 from orchestrator.utils.logging_config import get_logger
