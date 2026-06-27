@@ -14,6 +14,8 @@ from orchestrator.api.schemas import (
     FeedbackResponse,
     GCPTestRequest,
     GCPTestResponse,
+    GenerateReplyRequest,
+    GenerateReplyResponse,
     HealthResponse,
     MCPServiceResult,
     ProcessRequest,
