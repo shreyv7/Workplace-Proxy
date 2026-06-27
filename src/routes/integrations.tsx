@@ -1,315 +1,335 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { initialIntegrations, Integration } from "../lib/mock-data";
-import { Plug, CheckCircle2, AlertCircle, RefreshCw, Plus, X, Settings2, Key, HelpCircle, Loader2 } from "lucide-react";
-import { supabase } from "../lib/supabase";
+import { useState, useEffect, useCallback } from "react";
+import { CheckCircle2, AlertCircle, RefreshCw, Loader2, ExternalLink } from "lucide-react";
+import { useAuth } from "../../personalisation/auth/useAuth";
+import {
+  type IntegrationService,
+  type IntegrationStatus,
+  loadIntegrationStatuses,
+  upsertIntegrationStatus,
+  disconnectIntegration,
+  checkSlackMCPConnected,
+  checkCalendarMCPReachable,
+  checkGmailMCPReachable,
+  connectGoogleCalendar,
+  connectGmail,
+  connectSlack,
+  handleGoogleOAuthReturn,
+} from "../lib/integrations";
 
 export const Route = createFileRoute("/integrations")({
   validateSearch: (search: Record<string, unknown>) => search,
   head: () => ({
     meta: [
       { title: "Integrations — Workplace Proxy" },
-      {
-        name: "description",
-        content: "Manage the connected services feeding workspace data streams into the cognitive compiler.",
-      },
+      { name: "description", content: "Connect your workplace services to the cognitive compiler." },
     ],
   }),
-  component: IntegrationsSettings,
+  component: IntegrationsPage,
 });
 
-const MCP_SERVERS: Record<string, string> = {
-  int_slack: "http://localhost:3000",
-  int_email: "http://localhost:3001",
-  int_calendar: "http://localhost:3002",
-};
+// ── Integration definitions ───────────────────────────────────────────────────
 
-function IntegrationsSettings() {
-  const [integrations, setIntegrations] = useState<Integration[]>(initialIntegrations);
-  const [syncingId, setSyncingId] = useState<string | null>(null);
-  
-  // Modal states
-  const [configuringId, setConfiguringId] = useState<string | null>(null);
-  const [slackToken, setSlackToken] = useState("");
-  const [slackChannels, setSlackChannels] = useState("");
-  const [googleClientId, setGoogleClientId] = useState("");
-  const [googleClientSecret, setGoogleClientSecret] = useState("");
-  
-  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
-  const [disconnectText, setDisconnectText] = useState("");
-  const [disconnectLoading, setDisconnectLoading] = useState(false);
-  
-  const [saveLoading, setSaveLoading] = useState(false);
-  const [authUrlLoading, setAuthUrlLoading] = useState(false);
-  const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+interface IntegrationDef {
+  id: IntegrationService | string;
+  name: string;
+  icon: string;
+  description: string;
+  permissions: string[];
+  latency: string;
+  /** Managed integrations have live OAuth; others are demo/future */
+  managed: boolean;
+}
 
-  // Poll MCP health status
-  const checkHealth = async () => {
-    const updated = await Promise.all(
-      integrations.map(async (it) => {
-        const mcpUrl = MCP_SERVERS[it.id];
-        if (!mcpUrl) return it; // Skip mock integrations (jira, linear, etc)
+const INTEGRATION_DEFS: IntegrationDef[] = [
+  {
+    id: "google_calendar",
+    name: "Google Calendar",
+    icon: "📅",
+    description: "Checks your real calendar availability to slot translated tasks into optimal deep-work blocks.",
+    permissions: ["Read Events", "Free/Busy Lookup"],
+    latency: "25ms",
+    managed: true,
+  },
+  {
+    id: "gmail",
+    name: "Gmail",
+    icon: "✉️",
+    description: "Reads email threads so the Contextualizer agent can enrich analysis with actual message history.",
+    permissions: ["Read Threads", "Read Messages"],
+    latency: "120ms",
+    managed: true,
+  },
+  {
+    id: "slack",
+    name: "Slack",
+    icon: "💬",
+    description: "Ingests messages from channels and DMs so the Interceptor agent processes your real Slack workload.",
+    permissions: ["Read Channels", "Read Messages", "Resolve User Names"],
+    latency: "14ms",
+    managed: true,
+  },
+  {
+    id: "jira",
+    name: "Jira Cloud",
+    icon: "🎫",
+    description: "Monitors active sprints, assignments, and ticket priority tags.",
+    permissions: ["Read Tickets", "Update Status"],
+    latency: "95ms",
+    managed: false,
+  },
+  {
+    id: "linear",
+    name: "Linear",
+    icon: "⚡",
+    description: "Tracks engineering issues and product backlogs.",
+    permissions: ["Read Issues", "Assign Tasks"],
+    latency: "45ms",
+    managed: false,
+  },
+  {
+    id: "github",
+    name: "GitHub",
+    icon: "🐙",
+    description: "Parses pull request reviews, comments, and issue updates.",
+    permissions: ["Read Repository", "Read Notifications"],
+    latency: "30ms",
+    managed: false,
+  },
+];
 
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 1500);
-          const res = await fetch(`${mcpUrl}/health`, { signal: controller.signal });
-          clearTimeout(timeoutId);
-          if (!res.ok) throw new Error();
-          const data = await res.json();
-          
-          let status: "connected" | "disconnected" | "error" = "disconnected";
-          if (it.id === "int_slack") {
-            status = data.configured ? "connected" : "disconnected";
-          } else {
-            status = (data.configured && data.authenticated) ? "connected" : "disconnected";
-          }
+// ── Component ─────────────────────────────────────────────────────────────────
 
-          return {
-            ...it,
-            status,
-            latency: `${Math.floor(Math.random() * 15) + 10}ms`,
-            last_sync: "Just now",
-          };
-        } catch {
-          return {
-            ...it,
-            status: "disconnected" as const,
-            latency: "---",
-          };
-        }
-      })
-    );
-    setIntegrations(updated);
-  };
+function IntegrationsPage() {
+  const { user, isLoading: authLoading } = useAuth();
 
-  // Use safe URLSearchParams parsing to guarantee zero router context crashes
-  const [urlParams] = useState(() => typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null);
-  const integration = urlParams ? urlParams.get("integration") : null;
-  const status = urlParams ? urlParams.get("status") : null;
+  const [statuses, setStatuses]     = useState<Map<string, IntegrationStatus>>(new Map());
+  const [syncing, setSyncing]       = useState<string | null>(null);
+  const [connecting, setConnecting] = useState<string | null>(null);
+  const [loadingState, setLoadingState] = useState(true);
+  const [error, setError]           = useState<string | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (integration && status === "success") {
-      const integrationName = integration === "calendar" ? "Google Calendar" : "Email/Gmail";
-      setFeedbackMsg({
-        type: "success",
-        text: `Successfully authenticated ${integrationName}!`,
-      });
-      const id = integration === "calendar" ? "int_calendar" : "int_email";
-      setConfiguringId(id);
-      
-      // Clean up parameters from browser URL to prevent modal popping again on page reload
-      if (typeof window !== "undefined" && window.history) {
-        const cleanUrl = window.location.pathname;
-        window.history.replaceState({}, document.title, cleanUrl);
+  // ── Load statuses ───────────────────────────────────────────────────────────
+
+  const refreshStatuses = useCallback(async () => {
+    if (!user?.id) return;
+    setLoadingState(true);
+    try {
+      const fromDB = await loadIntegrationStatuses(user.id);
+
+      // Layer in live MCP server checks for managed integrations
+      const calReachable   = await checkCalendarMCPReachable();
+      const gmailReachable = await checkGmailMCPReachable();
+      const slackConnected = await checkSlackMCPConnected();
+
+      // Merge live MCP status into what we have from DB
+      if (slackConnected && !fromDB.get("slack")?.connected) {
+        await upsertIntegrationStatus(user.id, "slack", true, ["channels:history", "channels:read", "users:read"]);
+        fromDB.set("slack", { service: "slack", connected: true, scopes: ["channels:history", "channels:read", "users:read"], connected_at: new Date().toISOString(), metadata: {} });
       }
+
+      // If MCP server is unreachable, mark as disconnected in UI (but don't write to DB)
+      const merged = new Map(fromDB);
+      if (!calReachable) merged.set("google_calendar", { ...(fromDB.get("google_calendar") || { service: "google_calendar", scopes: [], connected_at: null, metadata: {} }), connected: false });
+      if (!gmailReachable) merged.set("gmail", { ...(fromDB.get("gmail") || { service: "gmail", scopes: [], connected_at: null, metadata: {} }), connected: false });
+
+      setStatuses(merged);
+    } catch (err: unknown) {
+      console.warn("[integrations] status load error:", err);
+    } finally {
+      setLoadingState(false);
     }
-  }, [integration, status]);
+  }, [user?.id]);
+
+  // ── Handle OAuth return params ──────────────────────────────────────────────
 
   useEffect(() => {
-    checkHealth();
-    const interval = setInterval(checkHealth, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    if (authLoading || !user?.id) return;
 
-  const triggerSync = (id: string) => {
-    setSyncingId(id);
-    setTimeout(() => {
-      setSyncingId(null);
-      checkHealth();
-    }, 1000);
-  };
+    const params = new URLSearchParams(window.location.search);
 
-  const handleOpenConfigure = (id: string) => {
-    setConfiguringId(id);
-    setFeedbackMsg(null);
-    // Prefill form states
-    if (id === "int_slack") {
-      setSlackToken("");
-      setSlackChannels("");
-    } else {
-      setGoogleClientId("");
-      setGoogleClientSecret("");
-    }
-  };
+    const handleReturn = async () => {
+      if (params.get("google_calendar_connected") === "true") {
+        const ok = await handleGoogleOAuthReturn("google_calendar");
+        if (ok) showNotification("Google Calendar connected successfully.");
+        window.history.replaceState({}, "", "/integrations");
+      }
+      if (params.get("gmail_connected") === "true") {
+        const ok = await handleGoogleOAuthReturn("gmail");
+        if (ok) showNotification("Gmail connected successfully.");
+        window.history.replaceState({}, "", "/integrations");
+      }
+      if (params.get("slack_connected") === "true") {
+        await upsertIntegrationStatus(user.id, "slack", true, ["channels:history", "channels:read", "users:read"]);
+        showNotification("Slack connected successfully.");
+        window.history.replaceState({}, "", "/integrations");
+      }
+      if (params.get("slack_error")) {
+        setError(`Slack connection failed: ${params.get("slack_error")}`);
+        window.history.replaceState({}, "", "/integrations");
+      }
 
-  const handleSaveConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!configuringId) return;
+      await refreshStatuses();
+    };
 
-    const mcpUrl = MCP_SERVERS[configuringId];
-    if (!mcpUrl) return;
+    handleReturn();
+  }, [authLoading, user?.id, refreshStatuses]);
 
-    setSaveLoading(true);
-    setFeedbackMsg(null);
+  useEffect(() => {
+    if (!authLoading && user?.id) refreshStatuses();
+  }, [authLoading, user?.id, refreshStatuses]);
+
+  // ── Actions ─────────────────────────────────────────────────────────────────
+
+  function showNotification(msg: string) {
+    setNotification(msg);
+    setTimeout(() => setNotification(null), 4000);
+  }
+
+  async function handleConfigure(id: string) {
+    if (!user) return;
+    setConnecting(id);
+    setError(null);
 
     try {
-      let body = {};
-      if (configuringId === "int_slack") {
-        body = {
-          botToken: slackToken,
-          channels: slackChannels.split(",").map(c => c.trim()).filter(Boolean)
-        };
+      if (id === "google_calendar") {
+        await connectGoogleCalendar();
+        // Browser will navigate away — execution resumes only if redirect blocked
+      } else if (id === "gmail") {
+        await connectGmail();
+      } else if (id === "slack") {
+        connectSlack();
       } else {
-        body = {
-          clientId: googleClientId,
-          clientSecret: googleClientSecret
-        };
+        showNotification(`${id} integration coming soon.`);
       }
-
-      const res = await fetch(`${mcpUrl}/config`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to save configuration.");
-      }
-
-      setFeedbackMsg({ type: "success", text: "Configuration saved successfully." });
-      
-      // If it is slack, we are done
-      if (configuringId === "int_slack") {
-        setTimeout(() => {
-          setConfiguringId(null);
-          checkHealth();
-        }, 1500);
-      }
-    } catch (err: any) {
-      setFeedbackMsg({ type: "error", text: err.message || "Failed to update configuration." });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(`Failed to connect ${id}: ${msg}`);
     } finally {
-      setSaveLoading(false);
+      setConnecting(null);
     }
-  };
+  }
 
-  const handleGoogleAuth = async () => {
-    if (!configuringId) return;
-    const mcpUrl = MCP_SERVERS[configuringId];
-    if (!mcpUrl) return;
+  async function handleDisconnect(id: string) {
+    if (!user) return;
+    setSyncing(id);
+    await disconnectIntegration(user.id, id as IntegrationService);
+    await refreshStatuses();
+    setSyncing(null);
+    showNotification(`${id} disconnected.`);
+  }
 
-    setAuthUrlLoading(true);
-    setFeedbackMsg(null);
+  async function handleSync(id: string) {
+    setSyncing(id);
+    await new Promise(r => setTimeout(r, 800));
+    await refreshStatuses();
+    setSyncing(null);
+    showNotification(`${id} status refreshed.`);
+  }
 
-    try {
-      const res = await fetch(`${mcpUrl}/auth-url`);
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Please save OAuth client credentials first.");
-      }
-      const { authUrl } = await res.json();
-      // Redirect or open auth URL in a new window
-      window.open(authUrl, "_blank");
-      setFeedbackMsg({ type: "success", text: "Consent URL opened. Please complete authentication in the browser tab." });
-    } catch (err: any) {
-      setFeedbackMsg({ type: "error", text: err.message || "Failed to retrieve consent URL." });
-    } finally {
-      setAuthUrlLoading(false);
-    }
-  };
-
-  const handleDisconnect = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!disconnectingId) return;
-    const integration = integrations.find(i => i.id === disconnectingId);
-    if (!integration) return;
-    
-    const requiredText = `disconnect ${integration.name.toLowerCase()}`;
-    if (disconnectText.toLowerCase() !== requiredText) return;
-
-    const mcpUrl = MCP_SERVERS[disconnectingId];
-    if (!mcpUrl) return;
-
-    setDisconnectLoading(true);
-    try {
-      const res = await fetch(`${mcpUrl}/disconnect`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to disconnect.");
-
-      await supabase.from("trace_logs").insert([{
-        t: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
-        agent: "System Core",
-        tool: "integration_manager",
-        msg: `User explicitly disconnected ${integration.name} integration.`
-      }]);
-
-      setDisconnectingId(null);
-      setDisconnectText("");
-      checkHealth();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setDisconnectLoading(false);
-    }
-  };
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="mx-auto max-w-[1400px] px-6 pt-8 pb-28 animate-fade-in select-none">
       {/* Header */}
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <span className="text-[10px] font-mono tracking-widest text-muted-foreground uppercase">External API Swarms</span>
+          <span className="text-[10px] font-mono tracking-widest text-muted-foreground uppercase">MCP Integration Layer</span>
           <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
             Connected integrations
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage live authentication tokens, webhook handlers, and vector parsing settings for external services.
+            OAuth-authenticated MCP bridges for Calendar, Gmail, and Slack. Powered by real API calls.
           </p>
         </div>
+        <button
+          className="inline-flex items-center gap-2 rounded-xl bg-foreground text-background hover:opacity-90 text-xs font-semibold px-4 py-2.5 transition-all shadow-sm"
+          onClick={refreshStatuses}
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+          Refresh All
+        </button>
       </header>
 
-      {/* Integrations Grid */}
+      {/* Notification banner */}
+      {notification && (
+        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/30 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+          {notification}
+        </div>
+      )}
+
+      {/* Error banner */}
+      {error && (
+        <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-900/30 px-4 py-3 text-sm text-rose-700 dark:text-rose-400 font-medium flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          {error}
+          <button onClick={() => setError(null)} className="ml-auto text-rose-400 hover:text-rose-600">✕</button>
+        </div>
+      )}
+
+      {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {integrations.map((it, idx) => {
-          const isConnected = it.status === "connected";
-          const isSyncing = syncingId === it.id;
-          const isConfigurable = !!MCP_SERVERS[it.id];
+        {INTEGRATION_DEFS.map((def, idx) => {
+          const status     = statuses.get(def.id);
+          const connected  = !!(status?.connected);
+          const isSyncing  = syncing === def.id;
+          const isConnecting = connecting === def.id;
 
           return (
             <div
-              key={it.id}
-              className={[
-                "group relative overflow-hidden rounded-[24px] border border-white/10 dark:border-white/5 bg-gradient-to-b from-card to-card/50 p-7 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] hover:-translate-y-1.5 transition-all duration-500 flex flex-col gap-6 animate-scale-in",
-                (!isConnected && !isConfigurable) ? "opacity-50 saturate-50 hover:opacity-80 transition-all" : ""
-              ].join(" ")}
+              key={def.id}
+              className="group relative rounded-2xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:shadow-md flex flex-col gap-4 animate-scale-in"
               style={{ animationDelay: `${idx * 40}ms` }}
             >
-              {/* Dynamic hover gradient */}
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+              {/* Loading overlay */}
+              {loadingState && (
+                <div className="absolute inset-0 rounded-2xl bg-card/70 flex items-center justify-center z-10">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
 
               {/* Top metadata */}
-              <div className="relative flex items-start justify-between gap-4 z-10">
-                <div className="flex items-center gap-4">
-                  <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-secondary to-secondary/40 text-2xl shadow-lg border border-white/20 dark:border-white/10 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
-                    <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 mix-blend-overlay rounded-2xl" />
-                    <span className="relative z-10">{it.icon}</span>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary/80 text-xl shadow-2xs group-hover:scale-105 transition-transform duration-300">
+                    {def.icon}
                   </div>
-                  <div className="flex flex-col justify-center">
-                    <h3 className="text-base font-extrabold text-foreground tracking-tight group-hover:text-primary transition-colors duration-300">{it.name}</h3>
-                    <p className="text-[11px] text-muted-foreground font-mono mt-0.5 opacity-80 group-hover:opacity-100 transition-opacity">Latency: {it.latency}</p>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground tracking-tight flex items-center gap-1.5">
+                      {def.name}
+                      {def.managed && (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900/30">
+                          LIVE
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-[10px] text-muted-foreground font-mono">MCP latency: {def.latency}</p>
                   </div>
                 </div>
 
                 <span className={[
-                  "px-3 py-1.5 rounded-full text-[10px] font-extrabold tracking-widest uppercase flex items-center gap-1.5 border shadow-sm backdrop-blur-md transition-all duration-300",
-                  isConnected 
-                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)] dark:text-emerald-400"
-                    : "bg-rose-500/10 text-rose-600 border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.15)] dark:text-rose-400"
+                  "px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide flex items-center gap-1 border flex-shrink-0",
+                  connected
+                    ? "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30"
+                    : "bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30",
                 ].join(" ")}>
-                  {isConnected ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
-                  {it.status}
+                  {connected ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+                  {connected ? "connected" : "disconnected"}
                 </span>
               </div>
 
               {/* Description */}
-              <p className="relative z-10 text-sm text-muted-foreground leading-relaxed">
-                {it.description}
-              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{def.description}</p>
 
-              {/* Permissions list */}
-              <div className="relative z-10 space-y-2.5">
-                <p className="text-[10px] font-extrabold text-muted-foreground/70 uppercase tracking-widest">Active scopes</p>
-                <div className="flex flex-wrap gap-2">
-                  {it.permissions.map((perm) => (
+              {/* Scopes */}
+              <div className="space-y-1.5">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
+                  {connected && status?.scopes?.length ? "Granted scopes" : "Required scopes"}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(connected && status?.scopes?.length ? status.scopes : def.permissions).map(perm => (
                     <span
                       key={perm}
                       className="text-[11px] font-medium px-3 py-1 rounded-lg bg-secondary/50 text-secondary-foreground/90 border border-border/50 group-hover:border-border/80 group-hover:bg-secondary transition-all duration-300"
@@ -320,25 +340,58 @@ function IntegrationsSettings() {
                 </div>
               </div>
 
+              {/* Connected-at */}
+              {connected && status?.connected_at && (
+                <p className="text-[10px] text-muted-foreground font-mono">
+                  Connected {new Date(status.connected_at).toLocaleString()}
+                </p>
+              )}
+
               {/* Footer controls */}
-              <div className="relative z-10 border-t border-border/40 pt-5 mt-auto flex items-center justify-between text-xs">
-                <span className="text-muted-foreground font-mono text-[10px] uppercase tracking-wider opacity-70 group-hover:opacity-100 transition-opacity">Synced {it.last_sync}</span>
-                
-                <div className="flex gap-2.5">
-                  <button
-                    onClick={() => triggerSync(it.id)}
-                    disabled={isSyncing}
-                    className="h-9 px-4 rounded-xl border border-border/50 bg-background/50 backdrop-blur-sm hover:bg-foreground hover:text-background hover:border-foreground hover:shadow-lg font-bold flex items-center gap-2 transition-all duration-300"
-                  >
-                    <RefreshCw className={["h-3.5 w-3.5", isSyncing ? "animate-spin text-mint" : ""].join(" ")} />
-                    Sync
-                  </button>
-                  {isConfigurable && (
+              <div className="border-t border-border/50 pt-4 mt-auto flex items-center justify-between text-[11px]">
+                <span className="text-muted-foreground font-mono">
+                  {connected ? "Active" : def.managed ? "Requires OAuth" : "Coming soon"}
+                </span>
+
+                <div className="flex gap-2">
+                  {connected && (
                     <button
-                      onClick={() => isConnected ? setDisconnectingId(it.id) : handleOpenConfigure(it.id)}
-                      className={["h-9 px-4 rounded-xl border border-transparent shadow-md hover:shadow-xl hover:-translate-y-0.5 font-bold transition-all duration-300", isConnected ? "bg-secondary text-foreground hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/20" : "bg-foreground text-background hover:bg-primary"].join(" ")}
+                      onClick={() => handleSync(def.id)}
+                      disabled={isSyncing}
+                      className="h-8 px-3 rounded-lg border border-border bg-card hover:bg-secondary/40 text-muted-foreground hover:text-foreground font-semibold flex items-center gap-1.5 transition-colors text-[11px]"
                     >
-                      {isConnected ? "Manage" : "Configure"}
+                      <RefreshCw className={["h-3.5 w-3.5", isSyncing ? "animate-spin text-mint" : ""].join(" ")} />
+                      Sync
+                    </button>
+                  )}
+
+                  {def.managed && (
+                    <button
+                      onClick={() => connected ? handleDisconnect(def.id) : handleConfigure(def.id)}
+                      disabled={isConnecting || isSyncing}
+                      className={[
+                        "h-8 px-3 rounded-lg border font-semibold flex items-center gap-1.5 transition-colors text-[11px]",
+                        connected
+                          ? "border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/20 dark:border-rose-900 dark:text-rose-400"
+                          : "border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-400",
+                        (isConnecting || isSyncing) ? "opacity-60 cursor-not-allowed" : "",
+                      ].join(" ")}
+                    >
+                      {isConnecting
+                        ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Connecting…</>
+                        : connected
+                          ? "Disconnect"
+                          : <><ExternalLink className="h-3.5 w-3.5" />Connect</>
+                      }
+                    </button>
+                  )}
+
+                  {!def.managed && (
+                    <button
+                      disabled
+                      className="h-8 px-3 rounded-lg border border-border bg-card text-muted-foreground/50 font-semibold text-[11px] cursor-not-allowed"
+                    >
+                      Configure
                     </button>
                   )}
                 </div>
@@ -348,222 +401,23 @@ function IntegrationsSettings() {
         })}
       </div>
 
-      {/* Configuration Modal */}
-      {configuringId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setConfiguringId(null)} />
-          
-          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95">
-            <button
-              onClick={() => setConfiguringId(null)}
-              className="absolute right-4 top-4 rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-
-            <header className="mb-6">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-xl">
-                  {integrations.find(i => i.id === configuringId)?.icon}
-                </div>
-                <div>
-                  <h2 className="text-base font-extrabold tracking-tight">
-                    Configure {integrations.find(i => i.id === configuringId)?.name}
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    Connect local MCP swarm server to real-time APIs.
-                  </p>
-                </div>
-              </div>
-            </header>
-
-            <form onSubmit={handleSaveConfig} className="space-y-4">
-              {configuringId === "int_slack" ? (
-                <>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Slack Access Token</label>
-                    <div className="relative">
-                      <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <input
-                        type="password"
-                        placeholder="xoxb-... or xoxp-... / xoxe..."
-                        value={slackToken}
-                        onChange={(e) => setSlackToken(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-background/50 pl-10 pr-4 py-2.5 text-sm focus:border-cyan-500 focus:outline-hidden transition-all"
-                        required
-                      />
-                    </div>
-                    <p className="text-[10px] text-muted-foreground leading-normal">
-                      Provide the Bot OAuth Token (starts with <code>xoxb-</code>) or Access Token (starts with <code>xoxp-</code> / <code>xoxe</code>) from your Slack App page.
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Channel Filter (Comma-separated IDs)</label>
-                    <input
-                      type="text"
-                      placeholder="C0123456789, C9876543210"
-                      value={slackChannels}
-                      onChange={(e) => setSlackChannels(e.target.value)}
-                      className="w-full rounded-xl border border-border bg-background/50 px-4 py-2.5 text-sm focus:border-cyan-500 focus:outline-hidden transition-all"
-                      required
-                    />
-                    <p className="text-[10px] text-muted-foreground leading-normal font-sans">
-                      List the channel IDs the bot has been invited to. The Interceptor monitors these channels.
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Google OAuth Client ID</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 123456-abcdef.apps.googleusercontent.com"
-                      value={googleClientId}
-                      onChange={(e) => setGoogleClientId(e.target.value)}
-                      className="w-full rounded-xl border border-border bg-background/50 px-4 py-2.5 text-sm focus:border-cyan-500 focus:outline-hidden transition-all"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Google OAuth Client Secret</label>
-                    <input
-                      type="password"
-                      placeholder="••••••••••••••••••••"
-                      value={googleClientSecret}
-                      onChange={(e) => setGoogleClientSecret(e.target.value)}
-                      className="w-full rounded-xl border border-border bg-background/50 px-4 py-2.5 text-sm focus:border-cyan-500 focus:outline-hidden transition-all"
-                      required
-                    />
-                  </div>
-
-                  <div className="rounded-xl bg-secondary/50 border border-border/40 p-3.5 flex items-start gap-3">
-                    <HelpCircle className="h-5 w-5 text-cyan-500 flex-shrink-0 mt-0.5" />
-                    <div className="text-[11px] leading-relaxed text-muted-foreground">
-                      <span className="font-semibold text-foreground block mb-0.5">Instructions:</span>
-                      1. Save the credentials above.<br />
-                      2. Ensure the redirect URI in Google Cloud Console matches:<br />
-                      <code className="text-foreground bg-secondary px-1 py-0.5 rounded text-[10px] font-mono">
-                        {configuringId === "int_email" ? "http://localhost:3001/oauth2callback" : "http://localhost:3002/oauth2callback"}
-                      </code><br />
-                      3. Click <strong>"Authenticate Account"</strong> to generate token.
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {feedbackMsg && (
-                <div className={[
-                  "p-3 rounded-xl text-xs font-medium border flex items-center gap-2",
-                  feedbackMsg.type === "success" 
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30" 
-                    : "bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30"
-                ].join(" ")}>
-                  <span>{feedbackMsg.text}</span>
-                </div>
-              )}
-
-              <footer className="flex items-center justify-end gap-3 border-t border-border/50 pt-4 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setConfiguringId(null)}
-                  className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Cancel
-                </button>
-                
-                <div className="flex gap-2">
-                  {configuringId !== "int_slack" && (
-                    <button
-                      type="button"
-                      disabled={authUrlLoading}
-                      onClick={handleGoogleAuth}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/20 bg-cyan-950/10 text-cyan-500 hover:bg-cyan-500/10 text-xs font-bold px-4 py-2.5 transition-all"
-                    >
-                      {authUrlLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                      Authenticate Account
-                    </button>
-                  )}
-                  <button
-                    type="submit"
-                    disabled={saveLoading}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-foreground text-background hover:opacity-90 text-xs font-semibold px-5 py-2.5 transition-all shadow-sm"
-                  >
-                    {saveLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin text-background" /> : null}
-                    Save Configuration
-                  </button>
-                </div>
-              </footer>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Disconnect Modal */}
-      {disconnectingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setDisconnectingId(null)} />
-          
-          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-rose-500/20 bg-card p-6 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95">
-            <button
-              onClick={() => setDisconnectingId(null)}
-              className="absolute right-4 top-4 rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-
-            <header className="mb-6 flex flex-col items-center text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-rose-500/10 text-rose-500 mb-4">
-                <AlertCircle className="h-6 w-6" />
-              </div>
-              <h2 className="text-lg font-extrabold tracking-tight">
-                Disconnect {integrations.find(i => i.id === disconnectingId)?.name}?
-              </h2>
-              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                This will severe the active MCP connection, halt all automated polling for this integration, and delete local authentication keys.
-              </p>
-            </header>
-
-            <form onSubmit={handleDisconnect} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block text-center">
-                  Type <strong className="text-foreground select-none pointer-events-none">disconnect {integrations.find(i => i.id === disconnectingId)?.name.toLowerCase()}</strong> to confirm
-                </label>
-                <input
-                  type="text"
-                  placeholder={`disconnect ${integrations.find(i => i.id === disconnectingId)?.name.toLowerCase()}`}
-                  value={disconnectText}
-                  onChange={(e) => setDisconnectText(e.target.value)}
-                  onPaste={(e) => e.preventDefault()}
-                  autoComplete="off"
-                  className="w-full rounded-xl border border-rose-500/30 bg-rose-500/5 px-4 py-3 text-center text-sm font-mono focus:border-rose-500 focus:outline-hidden transition-all text-rose-500 placeholder:text-rose-500/30"
-                  required
-                />
-              </div>
-
-              <footer className="mt-8 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setDisconnectingId(null)}
-                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-xs font-bold text-foreground hover:bg-secondary transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={disconnectLoading || disconnectText.toLowerCase() !== `disconnect ${integrations.find(i => i.id === disconnectingId)?.name.toLowerCase()}`}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-rose-500 text-white px-4 py-3 text-xs font-bold hover:bg-rose-600 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {disconnectLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Disconnect Server"}
-                </button>
-              </footer>
-            </form>
+      {/* Setup instructions for non-connected managed integrations */}
+      {!loadingState && !authLoading && user && [...INTEGRATION_DEFS.filter(d => d.managed)].some(d => !statuses.get(d.id)?.connected) && (
+        <div className="mt-10 rounded-2xl border border-border bg-card p-6">
+          <h2 className="text-sm font-bold text-foreground mb-3">Setup instructions</h2>
+          <div className="space-y-3 text-xs text-muted-foreground">
+            {!statuses.get("google_calendar")?.connected && (
+              <p><span className="font-semibold text-foreground">Google Calendar:</span> Click Connect above — your Google account (already signed in) will be asked to grant calendar read access. No separate login required.</p>
+            )}
+            {!statuses.get("gmail")?.connected && (
+              <p><span className="font-semibold text-foreground">Gmail:</span> Click Connect above — grants Gmail read access to your signed-in Google account.</p>
+            )}
+            {!statuses.get("slack")?.connected && (
+              <p><span className="font-semibold text-foreground">Slack:</span> Requires a Slack App. Create one at <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">api.slack.com/apps</a>, add scopes <code>channels:history channels:read users:read</code>, set redirect URI to <code>http://localhost:3000/oauth/callback</code>, then set <code>SLACK_CLIENT_ID</code> and <code>SLACK_CLIENT_SECRET</code> in <code>slack-mcp-server/.env</code>.</p>
+            )}
           </div>
         </div>
       )}
     </div>
   );
 }
-

@@ -62,13 +62,12 @@ class SlotRequest(BaseModel):
 
 class MCPInterface:
     """
-    Transport-agnostic client for Role 1's Calendar MCP server.
+    Transport-agnostic client for Role 1's MCP servers (Calendar, Gmail, Slack).
 
-    All public methods (find_available_slot, get_todays_blocks, ping) are identical
-    regardless of which transport adapter is active — the Scheduler never needs to
-    change when Role 1 switches from HTTP to SSE or stdio.
+    Calendar methods use the pluggable MCPTransportAdapter (HTTP/SSE/stdio).
+    Gmail and Slack methods use direct httpx calls to their respective servers.
 
-    All methods degrade gracefully: unavailable calendar returns a sensible default slot.
+    All methods degrade gracefully — unavailable services return empty data or defaults.
     """
 
     def __init__(
@@ -76,8 +75,12 @@ class MCPInterface:
         calendar_url: str,
         timeout: float = 10.0,
         transport: MCPTransportAdapter | None = None,
+        email_url: str = "http://localhost:3001",
+        slack_url: str = "http://localhost:3000",
     ) -> None:
         self._calendar_url = calendar_url.rstrip("/")
+        self._email_url = email_url.rstrip("/")
+        self._slack_url = slack_url.rstrip("/")
         self._timeout = timeout
         # When no transport is provided, default to HTTP for backward compatibility.
         if transport is not None:
@@ -89,13 +92,18 @@ class MCPInterface:
                 timeout=self._timeout,
             )
 
-    async def find_available_slot(self, request: SlotRequest) -> tuple[CalendarBlock, str | None]:
+    async def find_available_slot(
+        self,
+        request: SlotRequest,
+        access_token: str | None = None,
+    ) -> tuple[CalendarBlock, str | None]:
         """
         Find the next available time slot in the user's calendar.
 
-        Returns (slot, warning_message). warning_message is None on success.
+        access_token is forwarded as Authorization: Bearer to the Calendar MCP server.
+        When provided, the server uses the user's real Google Calendar; otherwise demo data.
 
-        Endpoint assumed: POST /calendar/find-slot (pending Role 1 confirmation).
+        Returns (slot, warning_message). warning_message is None on success.
         """
         if not _HTTPX_AVAILABLE:
             return self._fallback_slot(request), "httpx not installed"
@@ -106,6 +114,7 @@ class MCPInterface:
                 if request.preferred_after
                 else None
             )
+            headers = {"Authorization": f"Bearer {access_token}"} if access_token else {}
             data = await self._transport.post(
                 "/calendar/find-slot",
                 json={
@@ -114,9 +123,10 @@ class MCPInterface:
                     "preferred_after": preferred_after_str,
                     "block_type": request.preferred_block_type,
                 },
+                headers=headers,
             )
             block = CalendarBlock(**data)
-            logger.debug("calendar_slot_found", start=block.start.isoformat())
+            logger.debug("calendar_slot_found", start=block.start.isoformat(), authenticated=bool(access_token))
             return block, None
 
         except Exception as exc:
@@ -124,24 +134,31 @@ class MCPInterface:
             logger.warning("calendar_mcp_error", endpoint="find_available_slot", error=str(exc))
             return self._fallback_slot(request), warning
 
-    async def get_todays_blocks(self, user_id: str) -> tuple[list[CalendarBlock], str | None]:
+    async def get_todays_blocks(
+        self,
+        user_id: str,
+        access_token: str | None = None,
+    ) -> tuple[list[CalendarBlock], str | None]:
         """
         Retrieve all calendar blocks for today to inform the Scheduler's reasoning.
 
-        Returns (blocks, warning_message). Returns empty list on failure.
+        access_token is forwarded as Authorization: Bearer to the Calendar MCP server.
+        When provided, the server reads the user's real Google Calendar; otherwise demo data.
 
-        Endpoint assumed: GET /calendar/today?user_id= (pending Role 1 confirmation).
+        Returns (blocks, warning_message). Returns empty list on failure.
         """
         if not _HTTPX_AVAILABLE:
             return [], "httpx not installed"
 
         try:
+            headers = {"Authorization": f"Bearer {access_token}"} if access_token else {}
             blocks_data = await self._transport.get(
                 "/calendar/today",
                 params={"user_id": user_id},
+                headers=headers,
             )
             blocks = [CalendarBlock(**b) for b in blocks_data]
-            logger.debug("calendar_blocks_fetched", count=len(blocks))
+            logger.debug("calendar_blocks_fetched", count=len(blocks), authenticated=bool(access_token))
             return blocks, None
 
         except Exception as exc:
@@ -152,6 +169,75 @@ class MCPInterface:
     async def ping(self) -> bool:
         """Check if the Calendar MCP server is reachable. Used by health check."""
         return await self._transport.ping()
+
+    async def get_gmail_threads(
+        self,
+        user_id: str,
+        access_token: str | None = None,
+        max_results: int = 10,
+    ) -> tuple[list[dict], str | None]:
+        """
+        Fetch email threads from the Gmail MCP server.
+
+        Returns (threads, warning). Threads is [] on failure.
+        access_token is forwarded as Authorization header when provided;
+        otherwise the Gmail MCP server uses its GOOGLE_ACCESS_TOKEN env var
+        or falls back to demo mode.
+        """
+        if not _HTTPX_AVAILABLE:
+            return [], "httpx not installed — Gmail MCP unavailable"
+
+        try:
+            import httpx
+            headers: dict[str, str] = {}
+            if access_token:
+                headers["Authorization"] = f"Bearer {access_token}"
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                resp = await client.get(
+                    f"{self._email_url}/gmail/threads",
+                    params={"user_id": user_id, "max_results": max_results},
+                    headers=headers,
+                )
+                resp.raise_for_status()
+                threads = resp.json()
+                logger.debug("gmail_threads_fetched", count=len(threads))
+                return threads, None
+        except Exception as exc:
+            warning = f"Gmail MCP unavailable: {type(exc).__name__}"
+            logger.warning("gmail_mcp_error", error=str(exc))
+            return [], warning
+
+    async def get_slack_messages(
+        self,
+        channel: str = "general",
+        user_id: str = "",
+        limit: int = 20,
+    ) -> tuple[list[dict], str | None]:
+        """
+        Fetch recent messages from a Slack channel via the Slack MCP server.
+
+        Returns (messages, warning). Messages is [] on failure.
+        The Slack MCP server uses its runtime bot token (from OAuth flow or env var)
+        or falls back to demo mode.
+        """
+        if not _HTTPX_AVAILABLE:
+            return [], "httpx not installed — Slack MCP unavailable"
+
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                resp = await client.get(
+                    f"{self._slack_url}/slack/messages",
+                    params={"channel": channel, "limit": limit},
+                )
+                resp.raise_for_status()
+                messages = resp.json()
+                logger.debug("slack_messages_fetched", count=len(messages), channel=channel)
+                return messages, None
+        except Exception as exc:
+            warning = f"Slack MCP unavailable: {type(exc).__name__}"
+            logger.warning("slack_mcp_error", error=str(exc))
+            return [], warning
 
     def _fallback_slot(self, request: SlotRequest) -> CalendarBlock:
         """Default slot when the Calendar MCP is unavailable: next morning at 09:00."""

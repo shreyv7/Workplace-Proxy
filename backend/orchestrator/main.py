@@ -67,6 +67,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         calendar_url=settings.mcp_calendar_url,
         timeout=settings.mcp_timeout,
         transport=transport,
+        email_url=settings.mcp_email_url,
+        slack_url=settings.mcp_slack_url,
     )
     logger.info("mcp_transport_selected", transport=settings.mcp_transport)
 

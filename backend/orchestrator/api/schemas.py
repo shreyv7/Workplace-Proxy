@@ -70,6 +70,14 @@ class ProcessRequest(BaseModel):
         ...,
         description="ID of the neurodivergent user who received the message"
     )
+    google_access_token: str | None = Field(
+        None,
+        description=(
+            "Google OAuth access token from the frontend Supabase session (provider_token). "
+            "Forwarded as Authorization: Bearer to Calendar MCP and Gmail MCP servers. "
+            "When absent, MCP servers fall back to GOOGLE_ACCESS_TOKEN env var or demo mode."
+        ),
+    )
 
 
 class FeedbackRequest(BaseModel):

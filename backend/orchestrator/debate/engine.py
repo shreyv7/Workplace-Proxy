@@ -267,6 +267,7 @@ class DebateEngine:
         enriched, warnings = await self._contextualizer.process(
             intercepted=state.intercepted,
             user_id=state.request.user_id,
+            access_token=state.request.google_access_token,
         )
         state.enriched = enriched
         state.warnings.extend(warnings)
@@ -278,6 +279,7 @@ class DebateEngine:
         scheduled, warnings = await self._scheduler.process(
             enriched=state.enriched,
             user_id=state.request.user_id,
+            access_token=state.request.google_access_token,
         )
         state.scheduled = scheduled
         state.warnings.extend(warnings)
@@ -648,7 +650,7 @@ def create_debate_engine(
         return backend
 
     interceptor = Interceptor(settings=cfg, backend=_get_backend("interceptor"))
-    contextualizer = Contextualizer(memory=memory, settings=cfg, backend=_get_backend("contextualizer"))
+    contextualizer = Contextualizer(memory=memory, settings=cfg, backend=_get_backend("contextualizer"), mcp=mcp)
     scheduler = Scheduler(mcp=mcp, settings=cfg, backend=_get_backend("scheduler"))
     translator = Translator(settings=cfg, backend=_get_backend("translator"))
 

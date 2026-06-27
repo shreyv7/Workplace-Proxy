@@ -129,9 +129,14 @@ class Scheduler(BaseAgent):
         self,
         enriched: EnrichedContext,
         user_id: str,
+        access_token: str | None = None,
     ) -> tuple[ScheduledContext, list[str]]:
         """
         Propose a deadline and calendar slot for the task.
+
+        access_token is the user's Google OAuth provider_token from the Supabase session.
+        When provided, it's forwarded to the Calendar MCP server so the freebusy query
+        and event list run against the user's real Google Calendar.
 
         Returns (ScheduledContext, warnings).
         """
@@ -139,12 +144,15 @@ class Scheduler(BaseAgent):
             "scheduler_processing",
             decoded_urgency=enriched.decoded_urgency,
             inferred_deadline=enriched.inferred_deadline,
+            calendar_auth=bool(access_token),
         )
 
         warnings: list[str] = []
 
-        # Fetch today's calendar blocks from Role 1's MCP
-        today_blocks, cal_warning = await self._mcp.get_todays_blocks(user_id=user_id)
+        # Fetch today's calendar blocks — passes token so MCP uses real calendar
+        today_blocks, cal_warning = await self._mcp.get_todays_blocks(
+            user_id=user_id, access_token=access_token
+        )
         if cal_warning:
             warnings.append(cal_warning)
 
@@ -166,7 +174,7 @@ class Scheduler(BaseAgent):
         duration = int(result.get("proposed_duration_minutes", 30))
         block_type_str = result.get("preferred_block_type", "shallow_work")
 
-        # Find actual slot from Calendar MCP
+        # Find actual slot from Calendar MCP — passes token for real freebusy query
         preferred_after = datetime.now(tz=timezone.utc)
         slot_request = SlotRequest(
             user_id=user_id,
@@ -174,7 +182,9 @@ class Scheduler(BaseAgent):
             preferred_after=preferred_after,
             preferred_block_type=block_type_str,
         )
-        cal_block, slot_warning = await self._mcp.find_available_slot(slot_request)
+        cal_block, slot_warning = await self._mcp.find_available_slot(
+            slot_request, access_token=access_token
+        )
         if slot_warning:
             warnings.append(slot_warning)
 
