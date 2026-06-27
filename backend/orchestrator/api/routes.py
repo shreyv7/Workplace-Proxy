@@ -13,7 +13,10 @@ from fastapi.responses import JSONResponse
 from orchestrator.api.schemas import (
     FeedbackRequest,
     FeedbackResponse,
+    GCPTestRequest,
+    GCPTestResponse,
     HealthResponse,
+    MCPServiceResult,
     ProcessRequest,
     ProcessResponse,
 )
@@ -128,6 +131,209 @@ async def submit_feedback(
     return FeedbackResponse(
         success=False,
         message="Feedback received but could not be stored (memory service unavailable).",
+    )
+
+
+@router.post(
+    "/generate-reply",
+    response_model=GenerateReplyResponse,
+    summary="Generate reply draft options for a message",
+)
+async def generate_reply(
+    payload: GenerateReplyRequest,
+    request: Request,
+) -> GenerateReplyResponse:
+    """Generate 3 reply options based on tone (casual, professional, concise)."""
+    engine = _get_engine(request)
+    backend = engine._translator._backend
+    
+    prompt = f"""
+    You are an AI assistant helping a neurodivergent professional draft replies to workplace messages.
+    Generate exactly three reply drafts for the following inbound message:
+    
+    Sender Name: {payload.sender_name}
+    Message Content: {payload.original_content}
+    Tone Preference requested by user: {payload.tone.value}
+    
+    Additional Context from user (if any): {payload.additional_context or "None"}
+    
+    Provide three distinct drafts:
+    1. A CASUAL draft (friendly, open, collaborative).
+    2. A PROFESSIONAL draft (structured, polite, corporate-appropriate).
+    3. A CONCISE draft (short, direct, to the point, minimal fluff).
+    
+    Format the output as a JSON object matching this schema:
+    {{
+        "drafts": [
+            {{
+                "text": "The Casual draft text",
+                "tone": "casual",
+                "word_count": 12
+            }},
+            {{
+                "text": "The Professional draft text",
+                "tone": "professional",
+                "word_count": 15
+            }},
+            {{
+                "text": "The Concise draft text",
+                "tone": "concise",
+                "word_count": 8
+            }}
+        ]
+    }}
+    """
+    
+    try:
+        system_prompt = "You are a professional communication draft generator. You must output valid JSON matching the requested schema."
+        result = backend.call_json(prompt=prompt, system_prompt=system_prompt, temperature=0.5)
+        
+        drafts = []
+        if isinstance(result, dict) and "drafts" in result:
+            for item in result["drafts"]:
+                drafts.append(ReplyDraft(
+                    text=item.get("text", ""),
+                    tone=item.get("tone", "professional"),
+                    word_count=item.get("word_count", len(item.get("text", "").split()))
+                ))
+        
+        if not drafts:
+            raise ValueError("Empty or malformed drafts returned by LLM")
+            
+        return GenerateReplyResponse(success=True, drafts=drafts)
+        
+    except Exception as exc:
+        logger.error("generate_reply_failed", error=str(exc), exc_info=True)
+        # Fallback to template-based drafts if API fails or offline
+        fallback_drafts = [
+            ReplyDraft(
+                text=f"Hey {payload.sender_name}, got your message about '{payload.original_content[:30]}...'. Let me check my calendar and get back to you shortly!",
+                tone="casual",
+                word_count=21
+            ),
+            ReplyDraft(
+                text=f"Dear {payload.sender_name},\n\nThank you for reaching out. I have received your message regarding '{payload.original_content[:30]}...' and am currently reviewing it. I will provide a detailed update shortly.\n\nBest regards,",
+                tone="professional",
+                word_count=32
+            ),
+            ReplyDraft(
+                text=f"Got it. Let me look into this and reply soon.",
+                tone="concise",
+                word_count=10
+            )
+        ]
+        return GenerateReplyResponse(success=True, drafts=fallback_drafts)
+
+
+@router.post(
+    "/test-gcp",
+    response_model=GCPTestResponse,
+    summary="End-to-end Google OAuth integration test",
+    description=(
+        "Accepts a Google OAuth access token (session.provider_token from Supabase), "
+        "forwards it as Authorization: Bearer to both the Calendar MCP (port 3002) and "
+        "Gmail MCP (port 3001), and returns a structured report. "
+        "Use this to confirm that real Google APIs are being reached rather than demo/mock data. "
+        "Does NOT touch the /process pipeline."
+    ),
+)
+async def test_gcp_integration(
+    payload: GCPTestRequest,
+    request: Request,
+) -> GCPTestResponse:
+    """Diagnostic: verify Calendar + Gmail MCP connectivity with a live Google OAuth token."""
+    from datetime import datetime, timezone
+
+    mcp = getattr(request.app.state, "mcp", None)
+    if mcp is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="MCP interface not initialised — check server startup logs.",
+        )
+
+    token: str | None = payload.google_access_token.strip() or None
+    user_id = payload.user_id
+
+    logger.info("test_gcp_started", user_id=user_id, token_provided=bool(token))
+
+    # ── Calendar MCP ──────────────────────────────────────────────────────────
+
+    cal_reachable = False
+    cal_error: str | None = None
+    cal_blocks: list[dict] = []
+
+    try:
+        logger.info("test_gcp_calendar_call", token_forwarded=bool(token))
+        blocks, warning = await mcp.get_todays_blocks(user_id=user_id, access_token=token)
+        cal_reachable = True
+        cal_blocks = [b.model_dump(mode="json") for b in blocks]
+        if warning:
+            cal_error = warning
+            logger.warning("test_gcp_calendar_warning", warning=warning)
+        logger.info("test_gcp_calendar_ok", count=len(cal_blocks))
+    except Exception as exc:
+        cal_error = f"{type(exc).__name__}: {exc}"
+        logger.error("test_gcp_calendar_error", error=cal_error)
+
+    # Demo-mode heuristic: real Calendar API only returns block_type="meeting".
+    # Demo data also contains "deep_work" and "free" blocks.
+    cal_demo = (not token) or any(
+        b.get("block_type") in ("deep_work", "free") for b in cal_blocks
+    )
+
+    # ── Gmail MCP ─────────────────────────────────────────────────────────────
+
+    gmail_reachable = False
+    gmail_error: str | None = None
+    gmail_threads: list[dict] = []
+
+    try:
+        logger.info("test_gcp_gmail_call", token_forwarded=bool(token))
+        threads, warning = await mcp.get_gmail_threads(
+            user_id=user_id, access_token=token, max_results=5
+        )
+        gmail_reachable = True
+        gmail_threads = [t if isinstance(t, dict) else dict(t) for t in threads]
+        if warning:
+            gmail_error = warning
+            logger.warning("test_gcp_gmail_warning", warning=warning)
+        logger.info("test_gcp_gmail_ok", count=len(gmail_threads))
+    except Exception as exc:
+        gmail_error = f"{type(exc).__name__}: {exc}"
+        logger.error("test_gcp_gmail_error", error=gmail_error)
+
+    # Demo-mode heuristic: demo Gmail thread IDs start with "demo_thread_".
+    gmail_demo = (not token) or any(
+        str(t.get("thread_id", "")).startswith("demo_thread_") for t in gmail_threads
+    )
+
+    logger.info(
+        "test_gcp_complete",
+        calendar_reachable=cal_reachable,
+        gmail_reachable=gmail_reachable,
+        calendar_demo=cal_demo,
+        gmail_demo=gmail_demo,
+    )
+
+    return GCPTestResponse(
+        token_provided=bool(token),
+        tested_at=datetime.now(tz=timezone.utc).isoformat(),
+        calendar=MCPServiceResult(
+            reachable=cal_reachable,
+            token_forwarded=bool(token),
+            demo_mode=cal_demo,
+            data_count=len(cal_blocks),
+            sample=cal_blocks[:3],
+            error=cal_error,
+        ),
+        gmail=MCPServiceResult(
+            reachable=gmail_reachable,
+            token_forwarded=bool(token),
+            demo_mode=gmail_demo,
+            data_count=len(gmail_threads),
+            sample=gmail_threads[:3],
+            error=gmail_error,
+        ),
     )
 
 

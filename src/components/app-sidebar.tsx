@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Inbox, SlidersHorizontal, Sparkles, Brain, Bot, Link2, Settings, TrendingUp, Sun, LogOut } from "lucide-react";
+import { Inbox, SlidersHorizontal, Sparkles, Brain, Bot, Link2, Settings, TrendingUp, Sun, LogOut, FlaskConical } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { useAuth } from "../../personalisation/auth/useAuth";
 import { supabase } from "../lib/supabase";
@@ -13,6 +13,7 @@ const nav = [
   { to: "/preferences", label: "Preferences", icon: SlidersHorizontal },
   { to: "/settings", label: "Platform Settings", icon: Settings },
   { to: "/insights", label: "Insights Dashboard", icon: TrendingUp },
+  { to: "/test-ui-gcp", label: "GCP Integration Test", icon: FlaskConical },
 ] as const;
 
 export function AppSidebar() {

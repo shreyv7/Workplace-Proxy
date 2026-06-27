@@ -18,6 +18,7 @@ import { Route as InsightsRouteImport } from './routes/insights'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AgentsRouteImport } from './routes/agents'
+import { Route as TestUiGcpRouteImport } from './routes/test-ui-gcp'
 import { Route as IndexRouteImport } from './routes/index'
 
 const SettingsRoute = SettingsRouteImport.update({
@@ -65,6 +66,11 @@ const AgentsRoute = AgentsRouteImport.update({
   path: '/agents',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TestUiGcpRoute = TestUiGcpRouteImport.update({
+  id: '/test-ui-gcp',
+  path: '/test-ui-gcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/preferences': typeof PreferencesRoute
   '/settings': typeof SettingsRoute
+  '/test-ui-gcp': typeof TestUiGcpRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/preferences': typeof PreferencesRoute
   '/settings': typeof SettingsRoute
+  '/test-ui-gcp': typeof TestUiGcpRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/preferences': typeof PreferencesRoute
   '/settings': typeof SettingsRoute
+  '/test-ui-gcp': typeof TestUiGcpRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/preferences'
     | '/settings'
+    | '/test-ui-gcp'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/preferences'
     | '/settings'
+    | '/test-ui-gcp'
   id:
     | '__root__'
     | '/'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/preferences'
     | '/settings'
+    | '/test-ui-gcp'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -158,6 +170,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   PreferencesRoute: typeof PreferencesRoute
   SettingsRoute: typeof SettingsRoute
+  TestUiGcpRoute: typeof TestUiGcpRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -232,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/test-ui-gcp': {
+      id: '/test-ui-gcp'
+      path: '/test-ui-gcp'
+      fullPath: '/test-ui-gcp'
+      preLoaderRoute: typeof TestUiGcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -246,6 +266,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   PreferencesRoute: PreferencesRoute,
   SettingsRoute: SettingsRoute,
+  TestUiGcpRoute: TestUiGcpRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

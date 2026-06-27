@@ -249,3 +249,47 @@ class ScheduledContext(BaseModel):
     calendar_slot: CalendarSlot | None
     scheduling_rationale: str
     deadline_rationale: str
+
+
+# ── Google OAuth integration test (POST /api/v1/test-gcp) ────────────────────
+
+class GCPTestRequest(BaseModel):
+    """
+    Sent by the frontend /test-ui-gcp page to verify Calendar and Gmail MCP
+    connectivity using the user's live Google OAuth token.
+    """
+    model_config = ConfigDict(extra="ignore")
+
+    google_access_token: str = Field(
+        ...,
+        min_length=1,
+        description="session.provider_token from the Supabase Google OAuth session",
+    )
+    user_id: str = Field(
+        default="test_user",
+        description="Passed as user_id param to MCP endpoints",
+    )
+
+
+class MCPServiceResult(BaseModel):
+    """Per-service result block within GCPTestResponse."""
+    reachable: bool = Field(..., description="Server responded without network error")
+    token_forwarded: bool = Field(..., description="Bearer token was included in the request")
+    demo_mode: bool = Field(
+        ...,
+        description=(
+            "True when the response contains mock/demo data rather than real Google API data. "
+            "Detected heuristically from the response payload."
+        ),
+    )
+    data_count: int = Field(default=0)
+    sample: list[dict] = Field(default_factory=list, description="First 3 items from the response")
+    error: str | None = None
+
+
+class GCPTestResponse(BaseModel):
+    """Full response from POST /api/v1/test-gcp."""
+    token_provided: bool = Field(..., description="True if a non-empty token was sent")
+    calendar: MCPServiceResult
+    gmail: MCPServiceResult
+    tested_at: str = Field(..., description="UTC ISO 8601 timestamp")
