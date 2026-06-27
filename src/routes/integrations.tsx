@@ -547,7 +547,7 @@ function IntegrationsPage() {
               className={[
                 "group relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-sm transition-all duration-300 flex flex-col gap-4 animate-scale-in",
                 isUnavailable
-                  ? "opacity-[0.72] saturate-[0.4]"
+                  ? "opacity-[0.48] saturate-[0.18] grayscale-[0.3]"
                   : "hover:shadow-md",
               ].join(" ")}
               style={{ animationDelay: `${idx * 40}ms` }}
@@ -561,7 +561,7 @@ function IntegrationsPage() {
 
               {isUnavailable && !loadingState && (
                 <div
-                  className="pointer-events-none absolute inset-0 z-[1] rounded-2xl bg-gradient-to-br from-slate-100/78 via-white/60 to-slate-300/74 dark:from-slate-200/26 dark:via-white/16 dark:to-slate-100/24 backdrop-blur-[1.5px]"
+                  className="pointer-events-none absolute inset-0 z-[1] rounded-2xl bg-gradient-to-br from-slate-200/92 via-white/82 to-slate-300/90 dark:from-slate-100/34 dark:via-white/24 dark:to-slate-200/32 backdrop-blur-[2px]"
                   aria-hidden="true"
                 />
               )}
