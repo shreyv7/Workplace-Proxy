@@ -36,29 +36,26 @@ function LandingPage() {
   const [signingIn, setSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
 
-  // If a valid session already exists, check the profile and route accordingly
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      const routeAfterAuth = async () => {
-        const isMock = user?.id?.startsWith("mock-");
-        if (isMock) {
-          const localProfile = localStorage.getItem(`profile_${user.id}`);
-          let onboardingCompleted = false;
-          if (localProfile) {
-            try {
-              onboardingCompleted = JSON.parse(localProfile).onboarding_completed;
-            } catch {}
-          }
-          navigate({
-            to: onboardingCompleted ? "/dashboard" : "/onboarding",
-            replace: true,
-          });
-          return;
+  const handleStart = async () => {
+    if (isAuthenticated && user) {
+      const isMock = user.id?.startsWith("mock-");
+      if (isMock) {
+        const localProfile = localStorage.getItem(`profile_${user.id}`);
+        let onboardingCompleted = false;
+        if (localProfile) {
+          try {
+            onboardingCompleted = JSON.parse(localProfile).onboarding_completed;
+          } catch {}
         }
+        navigate({
+          to: onboardingCompleted ? "/dashboard" : "/onboarding",
+        });
+        return;
+      }
 
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
           const { data: profile } = await supabase
             .from("user_profiles")
             .select("onboarding_completed")
@@ -66,15 +63,17 @@ function LandingPage() {
             .single();
           navigate({
             to: profile?.onboarding_completed ? "/dashboard" : "/onboarding",
-            replace: true,
           });
-        } catch {
-          navigate({ to: "/dashboard", replace: true });
+          return;
         }
-      };
-      routeAfterAuth();
+      } catch {}
+
+      // Fallback
+      navigate({ to: "/dashboard" });
+    } else {
+      handleGoogleSignIn();
     }
-  }, [isLoading, isAuthenticated, navigate, user]);
+  };
 
   const handleGoogleSignIn = async () => {
     setSignInError(null);
@@ -122,9 +121,8 @@ function LandingPage() {
         </div>
         <div className="flex items-center gap-6">
           <button
-            onClick={handleGoogleSignIn}
-            disabled={signingIn}
-            className="group flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium transition-all duration-300 hover:bg-white/10 hover:border-white/20 disabled:opacity-60 disabled:cursor-not-allowed"
+            onClick={handleStart}
+            className="group flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium transition-all duration-300 hover:bg-white/10 hover:border-white/20"
           >
             Launch App
             <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
@@ -153,7 +151,7 @@ function LandingPage() {
         {/* Hero CTA */}
         <div className="flex flex-col items-center gap-3 w-full max-w-xs mb-8">
           <button
-            onClick={handleGoogleSignIn}
+            onClick={handleStart}
             disabled={signingIn}
             className="relative group flex items-center justify-center gap-3 w-full rounded-xl bg-white text-gray-900 px-6 py-3 text-sm font-semibold tracking-wide shadow-[0_0_20px_rgba(255,255,255,0.12)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_25px_rgba(255,255,255,0.22)] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
@@ -176,7 +174,10 @@ function LandingPage() {
           </div>
 
           <button
-            onClick={() => loginMock()}
+            onClick={() => {
+              loginMock();
+              navigate({ to: "/onboarding" });
+            }}
             className="w-full rounded-xl border border-white/10 bg-white/5 px-6 py-2.5 text-xs font-medium text-white/60 transition-all duration-300 hover:bg-white/10 hover:text-white/80"
           >
             Launch Demo Workspace
