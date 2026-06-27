@@ -106,13 +106,21 @@ function startPolling() {
             // Skip bot messages
             if (msg.bot_id || msg.subtype === "bot_message") continue;
 
+            // Fallback dictionary for known demo user IDs when users:read scope is missing
+            const SENDER_FALLBACKS = {
+              "U0BD4GY8B8F": "Shrey Vashistha",
+              "U0BDDSL7UQ3": "Boss Tom"
+            };
+
             // Fetch user profile info
-            let senderName = "External User";
+            let senderName = SENDER_FALLBACKS[msg.user] || "Teammate";
             try {
               const userInfo = await webClient.users.info({ user: msg.user });
-              senderName = userInfo.user.real_name || userInfo.user.name || senderName;
+              if (userInfo && userInfo.ok && userInfo.user) {
+                senderName = userInfo.user.real_name || userInfo.user.name || senderName;
+              }
             } catch (e) {
-              console.error("Failed to fetch user info for user ID:", msg.user, e);
+              console.error("Failed to fetch user info for user ID:", msg.user, e.message);
             }
 
             const clientMsgId = msg.client_msg_id || msg.ts.replace(".", "_");
