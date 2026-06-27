@@ -30,7 +30,7 @@ import asyncio
 import time
 from dataclasses import dataclass, field
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from orchestrator.agents.base import AgentReview
 from orchestrator.agents.contextualizer import Contextualizer
@@ -54,6 +54,7 @@ from orchestrator.debate.transcript import DebateTranscript
 from orchestrator.interfaces.memory_interface import MemoryInterface
 from orchestrator.interfaces.mcp_interface import MCPInterface
 from orchestrator.memory.conversation import ConversationMemory, RoundRecord
+from orchestrator.utils.json_utils import extract_json
 from orchestrator.utils.logging_config import get_logger
 
 if TYPE_CHECKING:
@@ -107,12 +108,16 @@ class DebateEngine:
         scheduler: Scheduler,
         translator: Translator,
         settings: Settings | None = None,
+        adk_interceptor_runner: Any = None,
     ) -> None:
         self._interceptor = interceptor
         self._contextualizer = contextualizer
         self._scheduler = scheduler
         self._translator = translator
         self._settings = settings or get_settings()
+        # Google ADK: LlmAgent runner for the Interceptor stage.
+        # When set, Agent 1 runs through ADK; Agents 2-4 run through LyzrBackend.
+        self._adk_interceptor_runner = adk_interceptor_runner
         self._max_rounds = self._settings.max_debate_rounds
         self._consensus_threshold = self._settings.debate_consensus_threshold
 
@@ -221,6 +226,38 @@ class DebateEngine:
 
     async def _run_interceptor(self, state: PipelineState) -> None:
         logger.debug("stage_interceptor", message_id=state.request.message_id)
+
+        if self._adk_interceptor_runner is not None:
+            # ── Google ADK path ───────────────────────────────────────────────
+            # Run the Interceptor persona through a Google ADK LlmAgent.
+            # On success this populates state.intercepted and returns.
+            # On any failure, falls through to the Lyzr path below.
+            try:
+                from orchestrator.integrations.adk_integration import run_adk_agent
+                prompt = self._interceptor._build_prompt(state.request)
+                raw_text = await run_adk_agent(
+                    adk_runner=self._adk_interceptor_runner,
+                    user_message=prompt,
+                    session_id=str(state.request.message_id),
+                    user_id=state.request.user_id or "system",
+                )
+                result = extract_json(raw_text)
+                state.intercepted = self._interceptor._parse_result(state.request, result)
+                logger.info(
+                    "adk_interceptor_complete",
+                    urgency=state.intercepted.initial_urgency_estimate,
+                    vague_phrases=len(state.intercepted.identified_vague_phrases),
+                    backend="google_adk",
+                )
+                return
+            except Exception as exc:
+                logger.warning(
+                    "adk_interceptor_fallback",
+                    error=str(exc),
+                    fallback="lyzr_interceptor",
+                )
+
+        # ── Lyzr / GoogleBackend path (fallback) ──────────────────────────────
         state.intercepted = self._interceptor.process(state.request)
 
     async def _run_contextualizer(self, state: PipelineState) -> None:
@@ -587,6 +624,7 @@ def create_debate_engine(
     settings: Settings | None = None,
     backend: LLMBackend | None = None,
     agent_backends: dict[str, LLMBackend] | None = None,
+    adk_interceptor_runner: Any = None,
 ) -> DebateEngine:
     """
     Instantiate a fully-wired DebateEngine with all four agents.
@@ -628,4 +666,5 @@ def create_debate_engine(
         scheduler=scheduler,
         translator=translator,
         settings=cfg,
+        adk_interceptor_runner=adk_interceptor_runner,
     )

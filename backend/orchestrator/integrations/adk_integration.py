@@ -2,20 +2,22 @@
 
 google-adk 2.3.0 is installed and confirmed working.
 
-This module provides ADK-native LlmAgent wrappers for each Workplace Proxy agent persona,
-and a Runner factory for executing them. The core DebateEngine uses these as an optional
-backend — the pure Python orchestration in debate/engine.py remains the primary path.
+This module provides ADK-native LlmAgent wrappers for each Workplace Proxy agent persona
+and the ADKRunner wrapper that the DebateEngine uses to run the Interceptor stage.
+
+Architecture role:
+  The Interceptor (Agent 1) runs through Google ADK's LlmAgent on every request.
+  Agents 2-4 (Contextualizer, Scheduler, Translator) run through LyzrBackend.
+  Both ultimately route to Google Gemini — ADK directly, Lyzr via its cloud.
 
 ADK A2A (Agent-to-Agent) capability:
   google.adk.a2a is available for cross-agent communication. The A2AAgentExecutor
   can expose agents as A2A services that other agents call via HTTP. This aligns
   perfectly with the PRD's multi-agent debate requirement.
-
-Extension point: to wire ADK agents into DebateEngine, implement agent_backends
-with ADK-backed LLMBackend instances and pass them to create_debate_engine().
 """
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any
 
 from orchestrator.utils.logging_config import get_logger
@@ -32,6 +34,62 @@ try:
 except ImportError:
     ADK_AVAILABLE = False
     logger.warning("google_adk_not_installed", hint="pip install google-adk")
+
+
+# ── ADKRunner wrapper ─────────────────────────────────────────────────────────
+
+@dataclass
+class ADKRunner:
+    """
+    Wraps a Google ADK Runner together with its InMemorySessionService.
+
+    InMemorySessionService requires explicit session creation before run_async()
+    is called. This wrapper handles that automatically.
+
+    Created once at startup (create_runner) and stored on DebateEngine.
+    The engine calls .run() for every incoming request in _run_interceptor.
+    """
+
+    runner: Any
+    session_service: Any
+    app_name: str = "workplace_proxy"
+
+    async def run(self, user_message: str, session_id: str, user_id: str) -> str:
+        """
+        Execute the ADK LlmAgent and return the full text response.
+
+        Creates a fresh session for this request (idempotent — safe if session
+        already exists), runs the agent, and collects all content text events.
+        """
+        from google.genai import types as genai_types
+
+        # InMemorySessionService does not auto-create sessions
+        try:
+            await self.session_service.create_session(
+                app_name=self.app_name,
+                user_id=user_id,
+                session_id=session_id,
+            )
+        except Exception:
+            pass  # Session already exists for this session_id
+
+        content = genai_types.Content(
+            role="user",
+            parts=[genai_types.Part.from_text(text=user_message)],
+        )
+
+        final_text = ""
+        async for event in self.runner.run_async(
+            session_id=session_id,
+            user_id=user_id,
+            new_message=content,
+        ):
+            if hasattr(event, "content") and event.content:
+                for part in event.content.parts:
+                    if hasattr(part, "text") and part.text:
+                        final_text += part.text
+
+        return final_text.strip()
 
 
 def create_interceptor_agent(gemini_model: str, persona: str) -> "LlmAgent":
@@ -132,55 +190,38 @@ def create_translator_agent(gemini_model: str, persona: str) -> "LlmAgent":
 
 def create_runner(
     agent: "LlmAgent",
-    app_name: str = "project_clarity",
-) -> "Runner":
+    app_name: str = "workplace_proxy",
+) -> "ADKRunner":
     """
-    Create an ADK Runner for executing a single agent with in-memory session management.
+    Create an ADKRunner (LlmAgent + Runner + InMemorySessionService).
 
-    For multi-agent pipelines, create one Runner per agent and coordinate externally
-    (DebateEngine handles this coordination).
+    Returns an ADKRunner wrapper that handles session lifecycle automatically.
+    Called once at startup; the instance is held on DebateEngine for the
+    lifetime of the process.
     """
     if not ADK_AVAILABLE:
         raise RuntimeError("google-adk not available.")
 
-    return Runner(
+    session_service = InMemorySessionService()
+    runner = Runner(
         agent=agent,
         app_name=app_name,
-        session_service=InMemorySessionService(),
+        session_service=session_service,
     )
+    return ADKRunner(runner=runner, session_service=session_service, app_name=app_name)
 
 
 async def run_adk_agent(
-    runner: "Runner",
+    adk_runner: "ADKRunner",
     user_message: str,
     session_id: str,
     user_id: str,
 ) -> str:
     """
-    Execute an ADK agent via its Runner and return the text response.
+    Execute an ADK LlmAgent via its ADKRunner and return the text response.
 
-    Collects all event text from the async generator until the run completes.
+    Delegates to ADKRunner.run() which handles session creation automatically.
     """
     if not ADK_AVAILABLE:
         raise RuntimeError("google-adk not available.")
-
-    from google.genai import types as genai_types
-
-    content = genai_types.Content(
-        role="user",
-        parts=[genai_types.Part.from_text(text=user_message)],
-    )
-
-    final_text = ""
-    async for event in runner.run_async(
-        session_id=session_id,
-        user_id=user_id,
-        new_message=content,
-    ):
-        # ADK events: collect text from model response events
-        if hasattr(event, "content") and event.content:
-            for part in event.content.parts:
-                if hasattr(part, "text") and part.text:
-                    final_text += part.text
-
-    return final_text.strip()
+    return await adk_runner.run(user_message, session_id, user_id)

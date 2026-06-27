@@ -78,6 +78,32 @@ class LyzrBackend(LLMBackend):
 
     def __init__(self, agent: Any) -> None:
         self._agent = agent
+        self._patch_lyzr_list_response()
+
+    def _patch_lyzr_list_response(self) -> None:
+        """Unwrap list API responses before Lyzr SDK's _parse_chat_response sees them.
+
+        The Lyzr /v3/inference/chat/ endpoint intermittently returns a JSON array
+        instead of a JSON object. HTTPClient.post() does response.json() verbatim, so
+        _parse_chat_response receives a list and fails on response.get("response", "").
+        Patching the specific inference instance at construction time fixes this without
+        touching the SDK files.
+        """
+        try:
+            inference = self._agent._inference
+            _original = inference._parse_chat_response
+
+            def _safe_parse(response: Any, session_id: str) -> Any:
+                if isinstance(response, list):
+                    response = response[0] if (response and isinstance(response[0], dict)) else {}
+                return _original(response, session_id)
+
+            inference._parse_chat_response = _safe_parse
+        except AttributeError:
+            logger.warning(
+                "lyzr_inference_patch_failed",
+                hint="SDK internals may have changed; list API responses may still raise AttributeError",
+            )
 
     def call_text(self, prompt: str, system_prompt: str, temperature: float = 0.3) -> str:
         """Synchronous text inference via Lyzr cloud."""

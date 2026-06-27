@@ -7,6 +7,7 @@ and MCPInterface once at startup — not on every request.
 """
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -69,6 +70,36 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     logger.info("mcp_transport_selected", transport=settings.mcp_transport)
 
+    # ── Google ADK — Interceptor agent ───────────────────────────────────────
+    # The Interceptor (Agent 1) runs through a Google ADK LlmAgent on every
+    # request. Agents 2-4 continue to use LyzrBackend (or GoogleBackend).
+    # GOOGLE_API_KEY must be in os.environ for ADK's internal genai client.
+
+    os.environ.setdefault("GOOGLE_API_KEY", settings.google_api_key)
+
+    adk_interceptor_runner = None
+    try:
+        from orchestrator.integrations.adk_integration import (
+            ADK_AVAILABLE,
+            create_interceptor_agent,
+            create_runner,
+        )
+        from orchestrator.agents.interceptor import _PERSONA as _INTERCEPTOR_PERSONA
+        if ADK_AVAILABLE:
+            _adk_agent = create_interceptor_agent(settings.gemini_model, _INTERCEPTOR_PERSONA)
+            adk_interceptor_runner = create_runner(_adk_agent, "workplace_proxy")
+            logger.info(
+                "adk_interceptor_ready",
+                model=settings.gemini_model,
+                hint="Agent 1 (Interceptor) will run through Google ADK LlmAgent",
+            )
+    except Exception as exc:
+        logger.warning(
+            "adk_interceptor_setup_failed",
+            error=str(exc),
+            hint="Interceptor will fall back to LyzrBackend",
+        )
+
     # ── Select LLM backend ────────────────────────────────────────────────────
 
     from orchestrator.llm.backend import GoogleBackend, create_backend
@@ -103,6 +134,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     mcp=mcp,
                     settings=settings,
                     agent_backends=agent_backends,
+                    adk_interceptor_runner=adk_interceptor_runner,
                 )
             except Exception as exc:
                 logger.warning(
@@ -118,6 +150,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 )
                 engine = create_debate_engine(
                     memory=memory, mcp=mcp, settings=settings, backend=backend,
+                    adk_interceptor_runner=adk_interceptor_runner,
                 )
         else:
             logger.warning("lyzr_adk_not_available_falling_back_to_google")
@@ -129,6 +162,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             )
             engine = create_debate_engine(
                 memory=memory, mcp=mcp, settings=settings, backend=backend,
+                adk_interceptor_runner=adk_interceptor_runner,
             )
     else:
         # Shared backend (Google or single Lyzr agent)
@@ -153,6 +187,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             mcp=mcp,
             settings=settings,
             backend=backend,
+            adk_interceptor_runner=adk_interceptor_runner,
         )
 
     # Store on app state so routes can access them via Depends

@@ -95,24 +95,15 @@ class Interceptor(BaseAgent):
             backend=backend,
         )
 
-    def process(self, request: ProcessRequest) -> InterceptedContext:  # type: ignore[override]
+    def _parse_result(self, request: ProcessRequest, result: dict) -> InterceptedContext:
         """
-        Analyse the raw message and return a structured InterceptedContext.
+        Build an InterceptedContext from a parsed JSON result dict.
 
-        Raises ValueError if the LLM response cannot be parsed after one retry.
+        Extracted so both the Lyzr path (process) and the Google ADK path
+        (DebateEngine._run_interceptor) can share the same construction logic.
         """
-        self._logger.info(
-            "interceptor_processing",
-            message_id=request.message_id,
-            source=request.source,
-            content_length=len(request.content),
-        )
-
-        prompt = self._build_prompt(request)
-        result = self._call_json(prompt)
-
         try:
-            context = InterceptedContext(
+            return InterceptedContext(
                 raw_content=request.content,
                 sender_name=request.sender_name,
                 sender_role=request.sender_role,
@@ -133,6 +124,26 @@ class Interceptor(BaseAgent):
                 raw_result=json.dumps(result)[:200],
             )
             raise ValueError(f"Interceptor could not parse LLM output: {exc}") from exc
+
+    def process(self, request: ProcessRequest) -> InterceptedContext:  # type: ignore[override]
+        """
+        Analyse the raw message and return a structured InterceptedContext.
+
+        This is the Lyzr-backend path. The Google ADK path bypasses this method
+        and calls _parse_result() directly after running via ADKRunner.
+
+        Raises ValueError if the LLM response cannot be parsed after one retry.
+        """
+        self._logger.info(
+            "interceptor_processing",
+            message_id=request.message_id,
+            source=request.source,
+            content_length=len(request.content),
+        )
+
+        prompt = self._build_prompt(request)
+        result = self._call_json(prompt)
+        context = self._parse_result(request, result)
 
         self._logger.info(
             "interceptor_done",

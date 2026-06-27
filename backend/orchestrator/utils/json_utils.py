@@ -10,6 +10,21 @@ import re
 from typing import Any
 
 
+def _unwrap_single_item_list(parsed: Any) -> Any:
+    """
+    Unwrap [dict] → dict.
+
+    LLMs occasionally wrap a JSON object in a one-element array, e.g.
+    '[{"approved": true}]' instead of '{"approved": true}'.
+    When that happens every downstream .get() call raises AttributeError.
+    Only unwrap when the list has exactly one element and it is a dict —
+    leaving multi-element lists and non-dict elements untouched.
+    """
+    if isinstance(parsed, list) and len(parsed) == 1 and isinstance(parsed[0], dict):
+        return parsed[0]
+    return parsed
+
+
 def extract_json(text: str) -> Any:
     """
     Extract and parse JSON from an LLM text response using multiple strategies.
@@ -25,7 +40,7 @@ def extract_json(text: str) -> Any:
 
     # Strategy 1: direct parse
     try:
-        return json.loads(text)
+        return _unwrap_single_item_list(json.loads(text))
     except json.JSONDecodeError:
         pass
 
@@ -34,7 +49,7 @@ def extract_json(text: str) -> Any:
     if match:
         candidate = match.group(1).strip()
         try:
-            return json.loads(candidate)
+            return _unwrap_single_item_list(json.loads(candidate))
         except json.JSONDecodeError:
             pass
 
