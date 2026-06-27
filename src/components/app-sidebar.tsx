@@ -23,26 +23,15 @@ export function AppSidebar() {
   const handleSignOut = async () => {
     if (user?.id) {
       const isMock = user.id.startsWith("mock-");
-      // 1. Clear local preferences cache
-      localStorage.removeItem(`profile_${user.id}`);
-      
-      // 2. Set backend completion flag to false in Supabase so they re-onboard next time
-      if (!isMock) {
-        try {
-          await supabase
-            .from("user_profiles")
-            .update({ onboarding_completed: false })
-            .eq("user_id", user.id);
-        } catch (e) {
-          console.warn("Could not reset Supabase profile state:", e);
-        }
+      if (isMock) {
+        localStorage.removeItem(`profile_${user.id}`);
       }
     }
     
-    // 3. Clear auth state and cookies
+    // Clear auth state and cookies
     await logout();
     
-    // 4. Redirect to landing page
+    // Redirect to landing page
     navigate({ to: "/" });
   };
 

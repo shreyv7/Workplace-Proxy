@@ -86,6 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         avatar_url: "https://api.dicebear.com/7.x/bottts/svg?seed=Alex",
       },
     };
+    localStorage.removeItem(`profile_${mockUser.id}`); // Clear onboarding cache to always force onboarding flow
     localStorage.setItem("mock_user", JSON.stringify(mockUser));
     setUser(mockUser);
     setSession({ user: mockUser });

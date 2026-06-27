@@ -90,7 +90,7 @@ export const OnboardingFlow: React.FC = () => {
       setTimeout(() => {
         setCurrentStep((prev) => prev + 1);
         setTransitioning(false);
-      }, 300); // matches transition time
+      }, 150); // matches transition time
     } else {
       await handleCompleteOnboarding();
     }
@@ -102,7 +102,7 @@ export const OnboardingFlow: React.FC = () => {
       setTimeout(() => {
         setCurrentStep((prev) => prev - 1);
         setTransitioning(false);
-      }, 300);
+      }, 150);
     }
   };
 
@@ -214,7 +214,7 @@ export const OnboardingFlow: React.FC = () => {
         @keyframes slide-in-fade {
           from {
             opacity: 0;
-            transform: translateY(8px);
+            transform: translateY(4px);
           }
           to {
             opacity: 1;
@@ -222,7 +222,7 @@ export const OnboardingFlow: React.FC = () => {
           }
         }
         .animate-slide-in-fade {
-          animation: slide-in-fade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: slide-in-fade 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
 
@@ -247,7 +247,7 @@ export const OnboardingFlow: React.FC = () => {
       {/* Main card box */}
       <main className="flex-1 flex flex-col justify-center max-w-4xl w-full mx-auto my-4">
         <div
-          className={`w-full transition-opacity duration-300 ${
+          className={`w-full transition-opacity duration-150 ${
             transitioning ? "opacity-0" : "opacity-100 animate-slide-in-fade"
           }`}
         >

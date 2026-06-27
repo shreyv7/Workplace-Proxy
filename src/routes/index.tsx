@@ -32,7 +32,7 @@ function GoogleIcon({ className }: { className?: string }) {
 
 function LandingPage() {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading, loginWithGoogle, loginMock } = useAuth();
+  const { isAuthenticated, isLoading, loginWithGoogle, loginMock, user } = useAuth();
   const [signingIn, setSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
 
@@ -40,6 +40,22 @@ function LandingPage() {
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       const routeAfterAuth = async () => {
+        const isMock = user?.id?.startsWith("mock-");
+        if (isMock) {
+          const localProfile = localStorage.getItem(`profile_${user.id}`);
+          let onboardingCompleted = false;
+          if (localProfile) {
+            try {
+              onboardingCompleted = JSON.parse(localProfile).onboarding_completed;
+            } catch {}
+          }
+          navigate({
+            to: onboardingCompleted ? "/dashboard" : "/onboarding",
+            replace: true,
+          });
+          return;
+        }
+
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (!session) return;
@@ -58,7 +74,7 @@ function LandingPage() {
       };
       routeAfterAuth();
     }
-  }, [isLoading, isAuthenticated, navigate]);
+  }, [isLoading, isAuthenticated, navigate, user]);
 
   const handleGoogleSignIn = async () => {
     setSignInError(null);
@@ -212,7 +228,7 @@ function LandingPage() {
         <div className="flex flex-col sm:flex-row items-center justify-between px-6 md:px-12 max-w-7xl mx-auto w-full gap-4">
           <span>&copy; {new Date().getFullYear()} Workplace Proxy. All rights reserved.</span>
           <div className="flex gap-4">
-            <span>Powered by Google ADK &amp; Supabase</span>
+            <span>Powered by Google Adk, Lyzr, Qdrant and Supabase</span>
           </div>
         </div>
       </footer>

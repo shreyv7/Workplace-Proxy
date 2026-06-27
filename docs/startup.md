@@ -15,6 +15,7 @@ The project consists of four main services:
 Before starting the services, ensure dependencies and environment configurations are initialized.
 
 ### macOS & Linux Setup
+
 ```bash
 # 1. Install frontend dependencies and copy configuration
 npm install
