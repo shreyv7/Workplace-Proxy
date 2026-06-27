@@ -319,7 +319,7 @@ app.get("/oauth2callback", async (req, res) => {
     const { tokens } = await oauth2Client.getToken(code);
     saveToken(tokens);
     // Redirect user back to the frontend integration page
-    res.redirect("http://localhost:5173/settings?integration=email&status=success");
+    res.redirect("http://localhost:5173/integrations?integration=email&status=success");
   } catch (err) {
     console.error("Error exchanging OAuth code:", err);
     res.status(500).send("Failed to retrieve access token. " + err.message);
