@@ -67,6 +67,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         calendar_url=settings.mcp_calendar_url,
         timeout=settings.mcp_timeout,
         transport=transport,
+        email_url=settings.mcp_email_url,
+        slack_url=settings.mcp_slack_url,
     )
     logger.info("mcp_transport_selected", transport=settings.mcp_transport)
 
@@ -194,6 +196,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.engine = engine
     app.state.memory = memory
     app.state.mcp = mcp
+    app.state.runtime_backend_label = active_backend_label
+    app.state.adk_interceptor_enabled = bool(adk_interceptor_runner)
 
     logger.info("startup_complete", backend=active_backend_label)
     yield

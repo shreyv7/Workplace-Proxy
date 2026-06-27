@@ -175,3 +175,36 @@ class TestHealthEndpoint:
         assert "calendar_mcp" in deps
         assert "google_adk" in deps
         assert "lyzr" in deps
+
+
+class TestDebugRuntimeEndpoint:
+    def test_runtime_snapshot_returns_200(self, test_app):
+        response = test_app.get("/api/v1/debug/runtime")
+        assert response.status_code == 200
+
+    def test_runtime_snapshot_contains_expected_fields(self, test_app):
+        response = test_app.get("/api/v1/debug/runtime")
+        data = response.json()
+
+        assert data["backend_mode"] == "MockBackend"
+        assert "lyzr_enabled" in data
+        assert "lyzr_per_agent" in data
+        assert "adk_interceptor_enabled" in data
+        assert "mcp_transport" in data
+        assert "consensus_threshold" in data
+        assert "max_debate_rounds" in data
+        assert "agents" in data
+        assert "last_transcript_available" in data
+
+    def test_runtime_snapshot_lists_four_agents(self, test_app):
+        response = test_app.get("/api/v1/debug/runtime")
+        agents = response.json()["agents"]
+
+        assert len(agents) == 4
+        agent_ids = {agent["id"] for agent in agents}
+        assert agent_ids == {
+            "interceptor",
+            "contextualizer",
+            "scheduler",
+            "translator",
+        }

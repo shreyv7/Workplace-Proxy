@@ -2,6 +2,7 @@ const { spawn, execSync, exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+<<<<<<< HEAD
 // ── Docker detection ──────────────────────────────────────────────────────────
 // Use `docker info` (fast, no side-effects) to detect whether the Docker daemon
 // is reachable before attempting `docker compose up -d`.
@@ -25,6 +26,16 @@ if (dockerAvailable) {
   }
 } else {
   console.log('\x1b[33m[System] Docker not running — local services mode (no Docker required).\x1b[0m');
+=======
+let dockerComposeSuccess = true;
+// Ensure the dockerized backend stack is running before starting the frontend
+console.log('\x1b[36m[System] Ensuring Dockerized Backend Services are up and running...\x1b[0m');
+try {
+  execSync('docker compose up -d', { stdio: 'inherit', cwd: __dirname });
+} catch (e) {
+  console.log('\x1b[31m[System] Warning: Failed to spin up backend containers. Continuing...\x1b[0m');
+  dockerComposeSuccess = false;
+>>>>>>> 026f1cc27eb0b42b049d2b7c85a299f6a4fcc6f4
 }
 
 // ── Service definitions ───────────────────────────────────────────────────────
@@ -46,22 +57,23 @@ const services = [
   {
     name: 'SlackMCP',
     command: 'node',
-    args: ['index.js'],
+    args: ['index.cjs'],
     cwd: path.join(__dirname, 'MCP', 'slack'),
     color: '\x1b[33m', // Yellow
     optional: true,
   },
   {
-    name: 'EmailMCP',
-    command: 'node',
-    args: ['index.js'],
-    cwd: path.join(__dirname, 'MCP', 'email'),
+    name: 'GmailMCP',
+    command: 'npm',
+    args: ['start'],
+    cwd: path.join(__dirname, 'gmail-mcp-server'),
     color: '\x1b[34m', // Blue
     optional: true,
   },
   {
-    name: 'CalendarMCP',
+    name: 'WhatsAppMCP',
     command: 'node',
+<<<<<<< HEAD
     args: ['index.js'],
     cwd: path.join(__dirname, 'MCP', 'google-calendar'),
     color: '\x1b[38;5;208m', // Orange
@@ -108,6 +120,67 @@ if (!dockerComposeSuccess) {
 
 // ── Process management ────────────────────────────────────────────────────────
 
+=======
+    args: ['index.cjs'],
+    cwd: path.join(__dirname, 'MCP', 'whatsapp'),
+    color: '\x1b[32m', // Green
+  },
+];
+
+let ngrokAvailable = false;
+try {
+  execSync('which ngrok');
+  ngrokAvailable = true;
+} catch (e) {
+  console.log('\x1b[33m[System] Warning: ngrok is not installed in the path. Exposing webhooks for WhatsApp Business locally will require a manual tunnel pointing to port 3003.\x1b[0m');
+}
+
+if (ngrokAvailable) {
+  services.push({
+    name: 'NgrokTunnel',
+    command: 'ngrok',
+    args: ['http', '3003'],
+    cwd: __dirname,
+    color: '\x1b[35m', // Magenta
+  });
+}
+
+if (!dockerComposeSuccess) {
+  console.log('\x1b[33m[System] Docker not active. Appending local Python services (Orchestrator & MemoryService) and CalendarMCP to the runner...\x1b[0m');
+  services.push(
+    {
+      name: 'CalendarMCP',
+      command: 'npm',
+      args: ['start'],
+      cwd: path.join(__dirname, 'calendar-mcp-server'),
+      color: '\x1b[33m', // Yellow
+    },
+    {
+      name: 'MemoryService',
+      command: path.join(__dirname, 'backend', 'venv', 'bin', 'python'),
+      args: ['-m', 'uvicorn', 'memory_service.main:app', '--host', '0.0.0.0', '--port', '8001'],
+      cwd: path.join(__dirname, 'backend'),
+      color: '\x1b[35m', // Magenta
+    },
+    {
+      name: 'Orchestrator',
+      command: path.join(__dirname, 'backend', 'venv', 'bin', 'python'),
+      args: ['-m', 'uvicorn', 'orchestrator.main:app', '--host', '0.0.0.0', '--port', '8000'],
+      cwd: path.join(__dirname, 'backend'),
+      color: '\x1b[32m', // Green
+    }
+  );
+} else {
+  // We still need to make sure the dockerized calendar-mcp is up to date since we edited index.js
+  console.log('\x1b[36m[System] Rebuilding dockerized Calendar MCP container with updated endpoints...\x1b[0m');
+  try {
+    execSync('docker compose up -d --build calendar-mcp', { stdio: 'inherit', cwd: __dirname });
+  } catch (e) {
+    console.log('\x1b[31m[System] Warning: Failed to rebuild calendar-mcp container.\x1b[0m');
+  }
+}
+
+>>>>>>> 026f1cc27eb0b42b049d2b7c85a299f6a4fcc6f4
 const children = [];
 
 function killProcess(child) {

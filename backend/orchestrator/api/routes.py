@@ -5,11 +5,10 @@ and MemoryInterface. No business logic lives in this file.
 """
 from __future__ import annotations
 
-import time
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
+from orchestrator.agents.base import AgentIdentity
 from orchestrator.api.schemas import (
     FeedbackRequest,
     FeedbackResponse,
@@ -21,7 +20,16 @@ from orchestrator.api.schemas import (
     MCPServiceResult,
     ProcessRequest,
     ProcessResponse,
+    GenerateReplyRequest,
+    GenerateReplyResponse,
     ReplyDraft,
+    NormalizedEvent,
+    PriorityTask,
+    DailyClarityResponse,
+    NotesSaveRequest,
+    RescheduleRequest,
+    SynthesisPreviewRequest,
+    SynthesisPreviewResponse,
 )
 from orchestrator.config.settings import Settings, get_settings
 from orchestrator.utils.logging_config import get_logger
@@ -53,6 +61,84 @@ def _get_memory(request: Request):
             detail="Memory interface not initialised.",
         )
     return memory
+
+
+def _build_runtime_snapshot(request: Request) -> dict[str, object]:
+    """Summarise the active swarm runtime for internal diagnostics screens."""
+    engine = _get_engine(request)
+    settings = engine._settings
+    adk_interceptor_enabled = bool(
+        getattr(request.app.state, "adk_interceptor_enabled", False)
+    )
+    backend_mode = getattr(
+        request.app.state,
+        "runtime_backend_label",
+        type(engine._translator._backend).__name__,
+    )
+
+    agent_definitions = [
+        ("interceptor", "Interceptor Agent", engine._interceptor),
+        ("contextualizer", "Context Agent", engine._contextualizer),
+        ("scheduler", "Scheduler Agent", engine._scheduler),
+        ("translator", "Translator Agent", engine._translator),
+    ]
+
+    agents: list[dict[str, object]] = []
+    for agent_key, display_name, agent in agent_definitions:
+        identity = agent.get_identity()
+        if not isinstance(identity, AgentIdentity):
+            identity = None
+        llm_backend = type(agent._backend).__name__
+
+        primary_runtime = llm_backend
+        if agent_key == "interceptor" and adk_interceptor_enabled:
+            primary_runtime = "Google ADK Interceptor"
+
+        dependency = "Gemini / Lyzr runtime"
+        if agent_key == "contextualizer":
+            dependency = "Role 3 memory service (Qdrant context)"
+        elif agent_key == "scheduler":
+            dependency = "Role 1 Calendar MCP"
+
+        fallback_chain: list[str] = []
+        if agent_key == "interceptor" and adk_interceptor_enabled:
+            fallback_chain.append(llm_backend)
+        if agent_key == "contextualizer":
+            fallback_chain.append("Default memory context when Role 3 is unavailable")
+        if agent_key == "scheduler":
+            fallback_chain.append("Deterministic calendar slot when MCP is unavailable")
+        if agent_key == "translator":
+            fallback_chain.append("Emergency translation if the debate pipeline errors")
+
+        agents.append(
+            {
+                "id": agent_key,
+                "display_name": display_name,
+                "name": identity.name if identity else agent.name,
+                "role": identity.role if identity else agent.name,
+                "primary_runtime": primary_runtime,
+                "llm_backend": llm_backend,
+                "dependency": dependency,
+                "fallback_chain": fallback_chain,
+                "confidence_baseline": (
+                    identity.confidence_baseline if identity else None
+                ),
+                "expertise": identity.expertise if identity else [],
+                "limitations": identity.limitations if identity else [],
+            }
+        )
+
+    return {
+        "backend_mode": backend_mode,
+        "lyzr_enabled": bool(getattr(settings, "lyzr_enabled", False)),
+        "lyzr_per_agent": bool(getattr(settings, "lyzr_per_agent", False)),
+        "adk_interceptor_enabled": adk_interceptor_enabled,
+        "mcp_transport": getattr(settings, "mcp_transport", "http"),
+        "consensus_threshold": getattr(settings, "debate_consensus_threshold", 2),
+        "max_debate_rounds": getattr(settings, "max_debate_rounds", 3),
+        "agents": agents,
+        "last_transcript_available": engine.last_transcript is not None,
+    }
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -95,7 +181,47 @@ async def process_message(
         confidence=response.confidence_score,
         warnings=len(response.warnings),
     )
+
+    # Update telemetry persistently in Supabase
+    try:
+        import requests
+        from datetime import date
+        SUPABASE_URL = "https://xpihsdeapqxqexcqjvmw.supabase.co"
+        SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwaWhzZGVhcHF4cWV4Y3Fqdm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDM4MjMsImV4cCI6MjA5Nzk3OTgyM30.Ixons1qO4sIh2Ah1ac6ph0pSdEnuSzKSn8XwMt9iUu4"
+        today_str = date.today().isoformat()
+        
+        headers = {
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        get_today_url = f"{SUPABASE_URL}/rest/v1/telemetry_history?date=eq.{today_str}"
+        today_res = requests.get(get_today_url, headers=headers)
+        
+        if today_res.status_code == 200 and today_res.json():
+            today_data = today_res.json()[0]
+            updated_fields = {
+                "hours_saved": float(today_data.get("hours_saved") or 0) + 0.75,
+                "context_switches_prevented": int(today_data.get("context_switches_prevented") or 0) + 1,
+                "clarity_score": min(100, int(today_data.get("clarity_score") or 95) + 1)
+            }
+            requests.patch(f"{SUPABASE_URL}/rest/v1/telemetry_history?date=eq.{today_str}", json=updated_fields, headers=headers)
+        else:
+            new_telemetry = {
+                "date": today_str,
+                "hours_saved": 0.75,
+                "cognitive_friction": 18,
+                "focus_hours_protected": 4.5,
+                "clarity_score": 96,
+                "context_switches_prevented": 1
+            }
+            requests.post(f"{SUPABASE_URL}/rest/v1/telemetry_history", json=new_telemetry, headers=headers)
+    except Exception as tel_err:
+        logger.warning("telemetry_update_failed", error=str(tel_err))
+
     return response
+
 
 
 @router.post(
@@ -338,8 +464,6 @@ async def test_gcp_integration(
             error=gmail_error,
         ),
     )
-
-
 @router.get(
     "/debug/transcript",
     summary="Retrieve the most recent debate transcript",
@@ -367,6 +491,19 @@ async def get_debug_transcript(request: Request) -> JSONResponse:
 
 
 @router.get(
+    "/debug/runtime",
+    summary="Internal runtime snapshot",
+    description=(
+        "Returns the currently active agent roster, backend mode, ADK/Lyzr posture, "
+        "and fallback paths. For internal diagnostics and demo UI only."
+    ),
+)
+async def get_runtime_snapshot(request: Request) -> JSONResponse:
+    """Debug endpoint — returns the current swarm runtime configuration."""
+    return JSONResponse(content=_build_runtime_snapshot(request))
+
+
+@router.get(
     "/debug/metrics",
     summary="Internal metrics snapshot",
     description=(
@@ -379,6 +516,47 @@ async def get_metrics(request: Request) -> JSONResponse:
     """Debug endpoint — returns the in-process metrics store snapshot."""
     from orchestrator.metrics.store import get_metrics as _get_metrics
     return JSONResponse(content=_get_metrics().to_dict())
+
+
+@router.post(
+    "/debug/settings",
+    summary="Update internal debate settings dynamically",
+)
+async def update_settings(
+    payload: dict,
+    request: Request,
+) -> JSONResponse:
+    """Debug endpoint — updates the current debate threshold and max rounds."""
+    engine = _get_engine(request)
+    settings = engine._settings
+    
+    if "debate_consensus_threshold" in payload:
+        val = int(payload["debate_consensus_threshold"])
+        settings.debate_consensus_threshold = val
+        engine._consensus_threshold = val
+        if hasattr(engine, "_consensus_engine") and engine._consensus_engine:
+            engine._consensus_engine._threshold = val
+        
+    if "max_debate_rounds" in payload:
+        val = int(payload["max_debate_rounds"])
+        settings.max_debate_rounds = val
+        engine._max_rounds = val
+        if hasattr(engine, "_consensus_engine") and engine._consensus_engine:
+            engine._consensus_engine._max_rounds = val
+
+    logger.info(
+        "debate_settings_updated",
+        debate_consensus_threshold=settings.debate_consensus_threshold,
+        max_debate_rounds=settings.max_debate_rounds,
+    )
+
+    return JSONResponse(
+        content={
+            "status": "success",
+            "debate_consensus_threshold": settings.debate_consensus_threshold,
+            "max_debate_rounds": settings.max_debate_rounds,
+        }
+    )
 
 
 @router.get(
@@ -431,3 +609,440 @@ async def health_check(
         version=settings.app_version,
         dependencies=dependencies,
     )
+
+
+@router.get(
+    "/telemetry",
+    summary="Get weekly or monthly telemetry history",
+)
+async def get_telemetry(range: str = "weekly"):
+    try:
+        import requests
+        limit = 7 if range == "weekly" else 30
+        
+        SUPABASE_URL = "https://xpihsdeapqxqexcqjvmw.supabase.co"
+        SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwaWhzZGVhcHF4cWV4Y3Fqdm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDM4MjMsImV4cCI6MjA5Nzk3OTgyM30.Ixons1qO4sIh2Ah1ac6ph0pSdEnuSzKSn8XwMt9iUu4"
+        
+        headers = {
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
+        }
+        
+        url = f"{SUPABASE_URL}/rest/v1/telemetry_history?order=date.desc&limit={limit}"
+        res = requests.get(url, headers=headers)
+        res.raise_for_status()
+        data = res.json()
+        
+        # Reverse to return chronological order
+        data.reverse()
+        return JSONResponse(content={"status": "success", "data": data})
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Telemetry retrieval failed: {str(e)}"
+        )
+
+
+@router.get(
+    "/daily-clarity",
+    response_model=DailyClarityResponse,
+    summary="Get unified Daily Clarity view",
+)
+async def get_daily_clarity(
+    date: str,
+    user_id: str,
+    google_access_token: str | None = None,
+    request: Request = None,
+) -> DailyClarityResponse:
+    import requests
+    import sqlite3
+    from datetime import datetime, timezone
+    from uuid import uuid4
+    
+    SUPABASE_URL = "https://xpihsdeapqxqexcqjvmw.supabase.co"
+    SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwaWhzZGVhcHF4cWV4Y3Fqdm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDM4MjMsImV4cCI6MjA5Nzk3OTgyM30.Ixons1qO4sIh2Ah1ac6ph0pSdEnuSzKSn8XwMt9iUu4"
+
+    headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
+    }
+
+    # 1. Fetch daily_notes from SQLite local storage (binds to mounted host volume)
+    notes_content = ""
+    try:
+        conn = sqlite3.connect("/app/daily_notes.db")
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS daily_notes (user_id TEXT, date TEXT, content TEXT, PRIMARY KEY (user_id, date))")
+        cursor.execute("SELECT content FROM daily_notes WHERE user_id = ? AND date = ?", (user_id, date))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            notes_content = row[0]
+    except Exception as e:
+        logger.warning(f"Error fetching notes from SQLite: {e}")
+
+    # 2. Fetch messages
+    db_messages = []
+    try:
+        url_msgs = f"{SUPABASE_URL}/rest/v1/messages?user_id=eq.{user_id}"
+        res = requests.get(url_msgs, headers=headers)
+        if res.status_code == 200:
+            db_messages = res.json()
+    except Exception as e:
+        logger.warning(f"Error fetching messages: {e}")
+
+    # 3. Fetch calendar blocks
+    db_calendar = []
+    try:
+        url_cal = f"{SUPABASE_URL}/rest/v1/calendar_blocks?user_id=eq.{user_id}"
+        res = requests.get(url_cal, headers=headers)
+        if res.status_code == 200:
+            db_calendar = res.json()
+    except Exception as e:
+        logger.warning(f"Error fetching calendar blocks: {e}")
+
+    # 4. Fetch live calendar blocks from MCP Interface
+    mcp_blocks = []
+    mcp = getattr(request.app.state, "mcp", None) if request else None
+    if mcp:
+        try:
+            mcp_blocks, warning = await mcp.get_todays_blocks(user_id=user_id, access_token=google_access_token)
+        except Exception as e:
+            logger.warning(f"Error fetching live calendar from MCP: {e}")
+
+    # 5. Combine blocks and normalize events
+    normalized_blocks = []
+    
+    # Process DB calendar blocks
+    for b in db_calendar:
+        normalized_blocks.append(
+            NormalizedEvent(
+                id=b.get("id") or str(b.get("calendar_block_id", uuid4())),
+                title=b.get("title") or "Focus Block",
+                start=b.get("start"),
+                end=b.get("end"),
+                block_type=b.get("type") or "shallow_work",
+                can_reschedule=b.get("can_reschedule", True),
+                source="database",
+                conflict_level="low",
+                prep_required=False,
+                is_all_day=False,
+                importance_score=3,
+            )
+        )
+
+    # Process MCP calendar blocks (if any) and avoid duplication
+    for mb in mcp_blocks:
+        is_dup = False
+        start_iso = mb.start.isoformat()
+        end_iso = mb.end.isoformat()
+        for nb in normalized_blocks:
+            if nb.start == start_iso and nb.title == mb.title:
+                is_dup = True
+                break
+        if not is_dup:
+            normalized_blocks.append(
+                NormalizedEvent(
+                    id=f"mcp_{mb.title}_{start_iso}",
+                    title=mb.title or "Calendar Event",
+                    start=start_iso,
+                    end=end_iso,
+                    block_type=mb.block_type or "meeting",
+                    can_reschedule=True,
+                    source="google",
+                    conflict_level="low",
+                    prep_required=mb.block_type == "meeting",
+                    is_all_day=False,
+                    importance_score=3,
+                )
+            )
+
+    # Fallback to rich demonstration layout if no blocks exist
+    if not normalized_blocks:
+        normalized_blocks = [
+            NormalizedEvent(
+                id="mock_focus_1",
+                title="Morning Focus Block",
+                start=f"{date}T09:00:00Z",
+                end=f"{date}T11:30:00Z",
+                block_type="deep_work",
+                can_reschedule=True,
+                source="fallback",
+                conflict_level="low"
+            ),
+            NormalizedEvent(
+                id="mock_meeting_1",
+                title="Sprint Alignment Sync",
+                start=f"{date}T13:30:00Z",
+                end=f"{date}T14:15:00Z",
+                block_type="meeting",
+                can_reschedule=False,
+                source="fallback",
+                conflict_level="medium",
+                prep_required=True,
+                prep_notes="Review Figma onboarding mockups and design issues."
+            ),
+            NormalizedEvent(
+                id="mock_focus_2",
+                title="Afternoon Focus Block",
+                start=f"{date}T14:30:00Z",
+                end=f"{date}T16:30:00Z",
+                block_type="deep_work",
+                can_reschedule=True,
+                source="fallback",
+                conflict_level="low"
+            ),
+        ]
+
+    # Calculate statistics
+    meetings_count = sum(1 for b in normalized_blocks if b.block_type == "meeting")
+    focus_count = sum(1 for b in normalized_blocks if b.block_type in ("deep_work", "focus"))
+    conflict_count = sum(1 for b in normalized_blocks if b.conflict_level in ("medium", "high"))
+    
+    # Sort blocks chronologically
+    normalized_blocks.sort(key=lambda x: x.start)
+
+    # Next up meeting calculation
+    next_meeting = None
+    now_iso = datetime.now(tz=timezone.utc).isoformat()
+    for b in normalized_blocks:
+        if b.block_type == "meeting" and b.start >= now_iso:
+            next_meeting = b
+            break
+    if not next_meeting:
+        meetings = [b for b in normalized_blocks if b.block_type == "meeting"]
+        if meetings:
+            next_meeting = meetings[0]
+
+    next_up_str = next_meeting.start.split("T")[-1][:5] if next_meeting else "No more meetings"
+
+    # Meeting insights mapping
+    insights = {}
+    for b in normalized_blocks:
+        if b.block_type == "meeting":
+            if "Sprint" in b.title or "Standup" in b.title or "onboarding" in b.title.lower():
+                insights[b.id] = "Weekly onboarding flow sync. Make sure to open v3 onboarding Figma files beforehand and check the saturation issues raised by design team."
+            elif "Roadmap" in b.title or "Client" in b.title:
+                insights[b.id] = "Review Northwind Roadmap presentation files and accept invitations protecting your focus slot."
+            else:
+                insights[b.id] = f"No prep required for this event. Safe to shorten or delegate if needed."
+
+    # Parse priorities from unacknowledged database messages
+    priorities = []
+    active_priorities = [m for m in db_messages if not m.get("acknowledged", False)]
+    
+    def urgency_weight(m):
+        urg = m.get("importance", "low").lower()
+        if urg == "critical": return 4
+        if urg == "high": return 3
+        if urg == "medium": return 2
+        return 1
+
+    active_priorities.sort(key=urgency_weight, reverse=True)
+    
+    for idx, m in enumerate(active_priorities[:3]):
+        importance = m.get("importance", "medium")
+        status_val = "Do now" if importance == "high" else ("Before meeting" if importance == "medium" else "Can wait")
+        priorities.append(
+            PriorityTask(
+                id=m.get("message_id"),
+                title=m.get("action") or m.get("original_text", "")[:35] + "...",
+                importance=importance,
+                expected_duration=m.get("expected_duration") or "30 mins",
+                recommended_time=m.get("suggested_start_time") or "14:00",
+                why_important=m.get("reasoning") or "Identified by swarm consensus.",
+                status=status_val
+            )
+        )
+
+    # Fallback priorities if db has none
+    if not priorities:
+        priorities = [
+            PriorityTask(
+                id="task_fb_1",
+                title="Verify staging server config",
+                importance="high",
+                expected_duration="45 mins",
+                recommended_time="14:00",
+                why_important="Tom requested staging branch verification for release window.",
+                status="Do now"
+            ),
+            PriorityTask(
+                id="task_fb_2",
+                title="Accept roadmap alignment sync",
+                importance="medium",
+                expected_duration="30 mins",
+                recommended_time="15:00",
+                why_important="Protect your peak morning focus blocks.",
+                status="Before meeting"
+            )
+        ]
+
+    # Generate summary headlines
+    summary_sentence = f"You have {meetings_count} meetings today, {focus_count} protected focus blocks, and {conflict_count} schedule conflicts."
+    if conflict_count > 0:
+        summary_sentence += " Re-allocate focus windows to clear conflicts before afternoon syncs."
+    else:
+        summary_sentence += " Morning focus peaks are protected."
+
+    return DailyClarityResponse(
+        date=date,
+        timezone="UTC",
+        headline="Planner-first cognitive reset",
+        summary=summary_sentence,
+        stats={
+            "meetings": meetings_count,
+            "focusBlocks": focus_count,
+            "conflicts": conflict_count,
+            "nextUp": next_up_str
+        },
+        schedule_blocks=normalized_blocks,
+        top_priorities=priorities,
+        next_meeting=next_meeting,
+        meeting_insights=insights,
+        warnings=["Overlap detected in afternoon syncs" if conflict_count > 0 else "Schedule optimal"],
+        notes=notes_content
+    )
+
+
+@router.post(
+    "/daily-clarity/notes",
+    summary="Save Daily Clarity notes",
+)
+async def save_daily_notes(payload: NotesSaveRequest) -> JSONResponse:
+    import sqlite3
+    
+    try:
+        conn = sqlite3.connect("/app/daily_notes.db")
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS daily_notes (user_id TEXT, date TEXT, content TEXT, PRIMARY KEY (user_id, date))")
+        cursor.execute("""
+            INSERT INTO daily_notes (user_id, date, content)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id, date) DO UPDATE SET content = excluded.content
+        """, (payload.user_id, payload.date, payload.content))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error saving notes to SQLite: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Notes persistence failed: {str(e)}"
+        )
+
+    return JSONResponse(content={"status": "success", "message": "Notes saved successfully"})
+
+
+@router.post(
+    "/daily-clarity/reschedule",
+    summary="Accept a reschedule block",
+)
+async def reschedule_block(payload: RescheduleRequest) -> JSONResponse:
+    import requests
+    
+    SUPABASE_URL = "https://xpihsdeapqxqexcqjvmw.supabase.co"
+    SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwaWhzZGVhcHF4cWV4Y3Fqdm13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDM4MjMsImV4cCI6MjA5Nzk3OTgyM30.Ixons1qO4sIh2Ah1ac6ph0pSdEnuSzKSn8XwMt9iUu4"
+
+    headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    update_url = f"{SUPABASE_URL}/rest/v1/calendar_blocks?id=eq.{payload.block_id}"
+    update_data = {
+        "start": payload.new_start,
+        "end": payload.new_end,
+        "acknowledged": True
+    }
+    requests.patch(update_url, json=update_data, headers=headers)
+
+    return JSONResponse(content={"status": "success", "message": "Rescheduled successfully"})
+
+
+@router.post(
+    "/synthesis/preview",
+    response_model=SynthesisPreviewResponse,
+    summary="Preview translation synthesis using the LLM swarm backend",
+)
+async def preview_synthesis(
+    payload: SynthesisPreviewRequest,
+    engine=Depends(_get_engine),
+) -> SynthesisPreviewResponse:
+    """Preview translation synthesis format and verbosity level dynamically."""
+    logger.info(
+        "preview_synthesis_requested",
+        format=payload.format,
+        verbosity=payload.verbosity,
+    )
+
+    try:
+        # Check if the API key is the default placeholder or invalid
+        backend = engine._translator._backend
+        if backend._model == "gemini-2.0-flash" and backend._client.api_key == "your-google-api-key-here":
+            raise ValueError("API key is not configured. Please edit backend/.env")
+
+        # Build standard translation instructions prompt mapping structure preferences
+        prompt = f"""
+        Translate the following vague or corporate workplace message:
+        "{payload.message}"
+        
+        Synthesize the output strictly using the following parameters:
+        - Format structure: {payload.format}
+        - Verbosity level: {payload.verbosity}
+        
+        Formatting Guide:
+        - If format is "checklist", output a clean checklist with checkbox items (e.g. - [ ] Step description).
+        - If format is "bullets", output formatted bullet points (e.g. • Item).
+        - If format is "summary", output a structured TL;DR executive summary paragraph followed by 2-3 key takeaways.
+        - If format is "paragraph", output a coherent, polite, and direct paragraph translating the request.
+        
+        Keep the tone direct, kind, explicit, and easy to parse. Avoid fluff, corporate jargon, or preamble/postamble.
+        """
+        
+        system_prompt = "You are the Neurodivergent Communication Specialist (The Twin) agent, translating ambiguous signals into a clear cognitive-friendly preview."
+        
+        # Invoke LLM call directly using the orchestrator's Google/Lyzr backend client
+        synthesized = backend.call_text(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            temperature=0.3
+        )
+        
+        return SynthesisPreviewResponse(synthesized_text=synthesized, simulated=False)
+
+    except Exception as exc:
+        logger.warning("preview_synthesis_failed_falling_back", error=str(exc))
+        
+        # Generate a highly realistic fallback preview based on format & message keywords
+        msg_lower = payload.message.lower()
+        action = "Align on project roadmap details"
+        details = ["Review incoming sync request", "Pivot project priorities", "Establish follow-up buffer slots"]
+        
+        if "deploy" in msg_lower or "staging" in msg_lower:
+            action = "Verify and execute staging deployment"
+            details = ["Check staging build health", "Deploy fixes to staging environment", "Monitor logs for stability"]
+        elif "roadmap" in msg_lower or "sync" in msg_lower or "align" in msg_lower:
+            action = "Align on roadmap priorities"
+            details = ["Schedule roadmap alignment sync", "Review and pivot current priorities", "Confirm schedule with team leads"]
+        elif "design" in msg_lower or "color" in msg_lower or "onboarding" in msg_lower:
+            action = "Refine onboarding design system"
+            details = ["Review onboarding flow color palette", "Adjust sensory density and contrast", "Validate design changes with team"]
+            
+        if payload.format == "checklist":
+            items_str = "\n".join(f"- [ ] {d}" for d in details)
+            synthesized = f"### 🎯 {action}\n\n**Action Steps:**\n{items_str}"
+        elif payload.format == "bullets":
+            items_str = "\n".join(f"• {d}" for d in details)
+            synthesized = f"### 🎯 {action}\n\n**Key Takeaways:**\n{items_str}"
+        elif payload.format == "summary":
+            items_str = "\n".join(f"{i+1}. {d}" for i, d in enumerate(details))
+            synthesized = f"### 📋 Executive Summary\n\n{action} to ensure alignment across teams.\n\n**Key takeaways:**\n{items_str}"
+        else:  # paragraph
+            details_str = ", ".join(details).lower()
+            synthesized = f"Please take action to {action.lower()}. This will require you to: {details_str}."
+
+        return SynthesisPreviewResponse(synthesized_text=synthesized, simulated=True)
+
+
+

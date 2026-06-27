@@ -101,10 +101,61 @@ def triage_message():
         
         requests.post(f"{SUPABASE_URL}/rest/v1/trace_logs", json=log_records, headers=headers)
 
+        # Update telemetry persistently
+        try:
+            from datetime import date
+            today_str = date.today().isoformat()
+            get_today_url = f"{SUPABASE_URL}/rest/v1/telemetry_history?date=eq.{today_str}"
+            today_res = requests.get(get_today_url, headers=headers)
+            
+            if today_res.status_code == 200 and today_res.json():
+                today_data = today_res.json()[0]
+                updated_fields = {
+                    "hours_saved": float(today_data.get("hours_saved") or 0) + 0.75,
+                    "context_switches_prevented": int(today_data.get("context_switches_prevented") or 0) + 1,
+                    "clarity_score": min(100, int(today_data.get("clarity_score") or 95) + 1)
+                }
+                requests.patch(f"{SUPABASE_URL}/rest/v1/telemetry_history?date=eq.{today_str}", json=updated_fields, headers=headers)
+            else:
+                new_telemetry = {
+                    "date": today_str,
+                    "hours_saved": 0.75,
+                    "cognitive_friction": 18,
+                    "focus_hours_protected": 4.5,
+                    "clarity_score": 96,
+                    "context_switches_prevented": 1
+                }
+                requests.post(f"{SUPABASE_URL}/rest/v1/telemetry_history", json=new_telemetry, headers=headers)
+        except Exception as tel_err:
+            print("Telemetry update error:", tel_err)
+
         return jsonify({"status": "success", "message_id": msg_id})
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route("/api/telemetry", methods=["GET"])
+def get_telemetry():
+    try:
+        range_type = request.args.get("range", "weekly")
+        limit = 7 if range_type == "weekly" else 30
+        
+        headers = {
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
+        }
+        
+        url = f"{SUPABASE_URL}/rest/v1/telemetry_history?order=date.desc&limit={limit}"
+        res = requests.get(url, headers=headers)
+        res.raise_for_status()
+        data = res.json()
+        
+        # Reverse to return chronological order
+        data.reverse()
+        return jsonify({"status": "success", "data": data})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(port=8000, debug=True)
+

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ClarityMessage, initialDebates } from "../lib/mock-data";
 import { X, ShieldCheck, Scale, Loader2 } from "lucide-react";
+import { ApiError, getDebugTranscript, type DebugTranscriptMessage } from "../lib/api";
 
 type Props = {
   debateId: string;
@@ -34,26 +35,21 @@ export function AgentDebateModal({ debateId, message, onClose }: Props) {
     const fetchLiveTranscript = async () => {
       setLoading(true);
       try {
-        const response = await fetch("http://localhost:8000/api/v1/debug/transcript");
-        if (response.status === 404) {
-          throw new Error("No live transcript active");
-        }
-        if (!response.ok) throw new Error("Backend unreachable");
-        const data = await response.json();
-        
+        const data = await getDebugTranscript();
         const targetRequestId = message?.message_id || debateId.replace(/^deb_/, "");
         if (data && data.request_id === targetRequestId && data.messages) {
           // Map backend schema to frontend modal schema
-          const mapped: TranscriptStep[] = data.messages.map((m: any) => {
+          const mapped: TranscriptStep[] = data.messages.map((m: DebugTranscriptMessage) => {
             const agentInfo = mapSenderToAgent(m.sender);
             return {
               agent: agentInfo.name,
               avatar: agentInfo.avatar,
               opinion: m.type === "consensus" ? "Secured consensus alignment." : m.reasoning,
               status: mapTypeToStatus(m.type),
-              reason: m.recommendations && m.recommendations.length > 0 
-                ? m.recommendations.join("; ") 
-                : m.reasoning
+              reason:
+                m.recommendations && m.recommendations.length > 0
+                  ? m.recommendations.join("; ")
+                  : m.reasoning,
             };
           });
           setTranscript(mapped);
@@ -61,9 +57,12 @@ export function AgentDebateModal({ debateId, message, onClose }: Props) {
           setLoading(false);
           return;
         }
-      } catch (e: any) {
-        if (e.message !== "No live transcript active") {
-          console.warn("Could not retrieve live debate transcript from backend, running fallback generator...", e);
+      } catch (e) {
+        if (!(e instanceof ApiError && e.status === 404)) {
+          console.warn(
+            "Could not retrieve live debate transcript from backend, running fallback generator...",
+            e,
+          );
         }
       }
 
@@ -79,8 +78,8 @@ export function AgentDebateModal({ debateId, message, onClose }: Props) {
             avatar: "SE",
             opinion: "Debate details initialized.",
             status: "agreed",
-            reason: "Orchestrated 4-agent consensus debate. Consolidated timeline successfully."
-          }
+            reason: "Orchestrated 4-agent consensus debate. Consolidated timeline successfully.",
+          },
         ]);
         setSourceMode("dynamic");
       }
@@ -101,7 +100,10 @@ export function AgentDebateModal({ debateId, message, onClose }: Props) {
       case "translator":
         return { name: "Translator Agent", avatar: "TA" };
       default:
-        return { name: sender.charAt(0).toUpperCase() + sender.slice(1) + " Agent", avatar: sender.substring(0, 2).toUpperCase() };
+        return {
+          name: sender.charAt(0).toUpperCase() + sender.slice(1) + " Agent",
+          avatar: sender.substring(0, 2).toUpperCase(),
+        };
     }
   };
 
@@ -119,13 +121,13 @@ export function AgentDebateModal({ debateId, message, onClose }: Props) {
 
   const generateDynamicTranscript = (msg: ClarityMessage): TranscriptStep[] => {
     const steps: TranscriptStep[] = [];
-    
+
     steps.push({
       agent: "Interceptor Agent",
       avatar: "IA",
       opinion: `Ingested raw signal from ${msg.sender_name} via ${msg.source.toUpperCase()}.`,
       status: "proposed",
-      reason: `Analyzed message intent and initial parameters. Estimated raw urgency as ${msg.importance.toUpperCase()} with ${msg.ambiguity} ambiguity level.`
+      reason: `Analyzed message intent and initial parameters. Estimated raw urgency as ${msg.importance.toUpperCase()} with ${msg.ambiguity} ambiguity level.`,
     });
 
     let resolvedText = "";
@@ -137,7 +139,7 @@ export function AgentDebateModal({ debateId, message, onClose }: Props) {
       avatar: "CA",
       opinion: `Queried memory service database.`,
       status: msg.importance === "high" ? "countered" : "proposed",
-      reason: `Located historical context and preferences for user. Decoded intent: ${msg.reasoning}.${resolvedText}`
+      reason: `Located historical context and preferences for user. Decoded intent: ${msg.reasoning}.${resolvedText}`,
     });
 
     steps.push({
@@ -145,7 +147,7 @@ export function AgentDebateModal({ debateId, message, onClose }: Props) {
       avatar: "SA",
       opinion: `Analyzed timeline blocks and availability constraints.`,
       status: "proposed",
-      reason: `Proposed time slot ${msg.suggested_start_time} - ${msg.suggested_end_time} (${msg.translated_bullet_points.expected_duration}) protecting deep focus windows.`
+      reason: `Proposed time slot ${msg.suggested_start_time} - ${msg.suggested_end_time} (${msg.translated_bullet_points.expected_duration}) protecting deep focus windows.`,
     });
 
     steps.push({
@@ -153,7 +155,7 @@ export function AgentDebateModal({ debateId, message, onClose }: Props) {
       avatar: "TA",
       opinion: `Formulated actionable task translation: "${msg.translated_bullet_points.action}".`,
       status: "agreed",
-      reason: `Aligned briefing format with user formatting preferences. Swarm consensus secured.`
+      reason: `Aligned briefing format with user formatting preferences. Swarm consensus secured.`,
     });
 
     return steps;
@@ -169,13 +171,21 @@ export function AgentDebateModal({ debateId, message, onClose }: Props) {
               <Scale className="h-4.5 w-4.5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-foreground tracking-tight">Swarm Consensus Timeline</h3>
+              <h3 className="text-sm font-bold text-foreground tracking-tight">
+                Swarm Consensus Timeline
+              </h3>
               <p className="text-[10px] text-muted-foreground font-mono">
-                Source: {sourceMode === "live" ? "Live Swarm" : sourceMode === "seed" ? "Mock Session" : "Dynamic Reconstruction"} · ID: {debateId}
+                Source:{" "}
+                {sourceMode === "live"
+                  ? "Live Swarm"
+                  : sourceMode === "seed"
+                    ? "Mock Session"
+                    : "Dynamic Reconstruction"}{" "}
+                · ID: {debateId}
               </p>
             </div>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="rounded-xl border border-border bg-card p-2 text-muted-foreground hover:bg-secondary/40 hover:text-foreground transition-all duration-200"
           >
@@ -193,7 +203,9 @@ export function AgentDebateModal({ debateId, message, onClose }: Props) {
           ) : (
             <>
               <div className="rounded-xl bg-secondary/30 p-4 border border-border/50 text-xs leading-relaxed text-muted-foreground">
-                <span className="font-semibold text-foreground">Consensus Objective:</span> Swarm debating timing and structure optimization to prevent client friction and cognitive overload.
+                <span className="font-semibold text-foreground">Consensus Objective:</span> Swarm
+                debating timing and structure optimization to prevent client friction and cognitive
+                overload.
               </div>
 
               <div className="relative pl-6 space-y-6">
@@ -205,19 +217,22 @@ export function AgentDebateModal({ debateId, message, onClose }: Props) {
                   const isCountered = step.status === "countered";
                   const isAgreed = step.status === "agreed";
 
-                  let badgeColor = "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/20 dark:text-indigo-400";
+                  let badgeColor =
+                    "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/20 dark:text-indigo-400";
                   let badgeText = "Proposed";
                   if (isCountered) {
-                    badgeColor = "bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400";
+                    badgeColor =
+                      "bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400";
                     badgeText = "Refined / Countered";
                   } else if (isAgreed) {
-                    badgeColor = "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400";
+                    badgeColor =
+                      "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400";
                     badgeText = "Aligned";
                   }
 
                   return (
-                    <div 
-                      key={idx} 
+                    <div
+                      key={idx}
                       className="relative flex items-start gap-4 animate-slide-up"
                       style={{ animationDelay: `${idx * 100}ms` }}
                     >
@@ -230,16 +245,29 @@ export function AgentDebateModal({ debateId, message, onClose }: Props) {
                       <div className="flex-1 rounded-2xl border border-border bg-card/70 p-4 shadow-2xs">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-foreground">{step.agent}</span>
-                            <span className="text-[10px] text-muted-foreground font-mono">Agent</span>
+                            <span className="text-xs font-semibold text-foreground">
+                              {step.agent}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              Agent
+                            </span>
                           </div>
-                          <span className={["px-2 py-0.5 rounded-full text-[9px] font-mono font-medium", badgeColor].join(" ")}>
+                          <span
+                            className={[
+                              "px-2 py-0.5 rounded-full text-[9px] font-mono font-medium",
+                              badgeColor,
+                            ].join(" ")}
+                          >
                             {badgeText}
                           </span>
                         </div>
 
-                        <p className="mt-2 text-xs font-medium text-foreground/90">{step.opinion}</p>
-                        <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">{step.reason}</p>
+                        <p className="mt-2 text-xs font-medium text-foreground/90">
+                          {step.opinion}
+                        </p>
+                        <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                          {step.reason}
+                        </p>
                       </div>
                     </div>
                   );
@@ -255,7 +283,7 @@ export function AgentDebateModal({ debateId, message, onClose }: Props) {
             <ShieldCheck className="h-4.5 w-4.5" />
             <span>Swarm core consensus secured (94% confidence)</span>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="text-xs font-semibold px-4 py-2 bg-foreground text-background rounded-xl hover:opacity-90 transition-opacity"
           >

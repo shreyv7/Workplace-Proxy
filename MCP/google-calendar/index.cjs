@@ -3,7 +3,7 @@ const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 const { google } = require("googleapis");
-const { supabase } = require("../shared/supabase-client");
+const { supabase } = require("../shared/supabase-client.cjs");
 
 const app = express();
 app.use(cors());
@@ -89,9 +89,9 @@ app.post("/config", (req, res) => {
   }
   
   saveConfig({
-    clientId,
-    clientSecret,
-    redirectUri: redirectUri || `http://localhost:${PORT}/oauth2callback`
+    clientId: clientId.trim(),
+    clientSecret: clientSecret.trim(),
+    redirectUri: (redirectUri || `http://localhost:${PORT}/oauth2callback`).trim()
   });
 
   res.json({ success: true, message: "Configuration saved successfully." });
@@ -311,6 +311,16 @@ app.post("/calendar/create-event", async (req, res) => {
     console.error("Error creating Google Calendar event:", err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ── Disconnect Endpoint ──
+app.post("/disconnect", (req, res) => {
+  oauth2Client = null;
+  
+  if (fs.existsSync(CONFIG_PATH)) fs.unlinkSync(CONFIG_PATH);
+  if (fs.existsSync(TOKEN_PATH)) fs.unlinkSync(TOKEN_PATH);
+
+  res.json({ success: true, message: "Calendar integration disconnected successfully." });
 });
 
 app.listen(PORT, () => {

@@ -362,7 +362,7 @@ export const initialIntegrations: Integration[] = [
   {
     id: "int_jira",
     name: "Jira Cloud",
-    status: "connected",
+    status: "disconnected",
     messages_waiting: 2,
     last_sync: "5 mins ago",
     latency: "95ms",
@@ -373,7 +373,7 @@ export const initialIntegrations: Integration[] = [
   {
     id: "int_linear",
     name: "Linear",
-    status: "connected",
+    status: "disconnected",
     messages_waiting: 0,
     last_sync: "1 hour ago",
     latency: "45ms",
@@ -384,7 +384,7 @@ export const initialIntegrations: Integration[] = [
   {
     id: "int_github",
     name: "GitHub",
-    status: "connected",
+    status: "disconnected",
     messages_waiting: 5,
     last_sync: "Just now",
     latency: "30ms",
@@ -395,7 +395,7 @@ export const initialIntegrations: Integration[] = [
   {
     id: "int_teams",
     name: "Microsoft Teams",
-    status: "connected",
+    status: "disconnected",
     messages_waiting: 1,
     last_sync: "12 mins ago",
     latency: "150ms",
@@ -406,7 +406,7 @@ export const initialIntegrations: Integration[] = [
   {
     id: "int_notion",
     name: "Notion Workspace",
-    status: "connected",
+    status: "disconnected",
     messages_waiting: 0,
     last_sync: "3 hours ago",
     latency: "180ms",

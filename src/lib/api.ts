@@ -28,7 +28,7 @@
  *   ProcessResponse.confidence_score                 →  ClarityMessage.fidelity_rating (scale 0–1 → 1–5)
  */
 
-const BASE_URL =
+export const API_BASE_URL =
   (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? "http://localhost:8000";
 
 // ── Enumerations ──────────────────────────────────────────────────────────────
@@ -58,6 +58,12 @@ export interface ProcessRequest {
   thread_context?: string[];
   /** ID of the neurodivergent user who received the message */
   user_id: string;
+  /**
+   * Google OAuth access token from the Supabase session (session.provider_token).
+   * Forwarded by the backend as Authorization: Bearer to Calendar and Gmail MCP servers.
+   * Omit when the user has not connected Google integrations — MCPs fall back to demo mode.
+   */
+  google_access_token?: string;
 }
 
 export interface FeedbackRequest {
@@ -136,6 +142,107 @@ export interface HealthResponse {
   dependencies: Record<string, string>;
 }
 
+export interface DebugRuntimeAgent {
+  id: string;
+  display_name: string;
+  name: string;
+  role: string;
+  primary_runtime: string;
+  llm_backend: string;
+  dependency: string;
+  fallback_chain: string[];
+  confidence_baseline: number | null;
+  expertise: string[];
+  limitations: string[];
+}
+
+export interface DebugRuntimeResponse {
+  backend_mode: string;
+  lyzr_enabled: boolean;
+  lyzr_per_agent: boolean;
+  adk_interceptor_enabled: boolean;
+  mcp_transport: string;
+  consensus_threshold: number;
+  max_debate_rounds: number;
+  agents: DebugRuntimeAgent[];
+  last_transcript_available: boolean;
+}
+
+export interface DebugMetricsResponse {
+  messages_processed: number;
+  total_latency_ms: number;
+  average_latency_ms: number;
+  consensus_reached: number;
+  consensus_rate: number;
+  total_debate_rounds: number;
+  average_debate_rounds: number;
+  fallback_events: number;
+  fallback_rate: number;
+  demo_mode_hits: number;
+}
+
+export interface DebugTranscriptMessage {
+  sender: string;
+  recipient: string;
+  type: string;
+  confidence: number;
+  reasoning: string;
+  recommendations: string[];
+  timestamp: string;
+}
+
+export interface DebugTranscriptConsensusRound {
+  round: number;
+  reached: boolean;
+  approved_count: number;
+  threshold: number;
+  concerns: string[];
+  dominant_objection: string | null;
+  conflicting_concerns: string[];
+}
+
+export interface DebugTranscriptResponse {
+  request_id: string;
+  started_at: string;
+  ended_at: string | null;
+  duration_ms: number | null;
+  rounds_completed: number;
+  final_consensus: boolean;
+  final_confidence: number;
+  total_processing_ms: number;
+  stage_latencies: Record<string, number>;
+  fallback_events: string[];
+  consensus_history: DebugTranscriptConsensusRound[];
+  confidence_history: Array<{
+    round: number;
+    score: number;
+    approved_count: number;
+    reached_consensus: boolean;
+  }>;
+  messages: DebugTranscriptMessage[];
+}
+
+export type ReplyTone = "professional" | "casual" | "concise";
+
+export interface ReplyDraft {
+  text: string;
+  tone: ReplyTone;
+  word_count: number;
+}
+
+export interface GenerateReplyRequest {
+  message_id: string;
+  original_content: string;
+  sender_name: string;
+  tone?: ReplyTone;
+  additional_context?: string;
+}
+
+export interface GenerateReplyResponse {
+  success: boolean;
+  drafts: ReplyDraft[];
+}
+
 // ── HTTP helpers ──────────────────────────────────────────────────────────────
 
 class ApiError extends Error {
@@ -149,7 +256,7 @@ class ApiError extends Error {
 }
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -162,7 +269,7 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`);
+  const res = await fetch(`${API_BASE_URL}${path}`);
   if (!res.ok) {
     throw new ApiError(res.status, `HTTP ${res.status}`);
   }
@@ -193,6 +300,118 @@ export async function submitFeedback(req: FeedbackRequest): Promise<FeedbackResp
  */
 export async function checkHealth(): Promise<HealthResponse> {
   return getJson<HealthResponse>("/api/v1/health");
+}
+
+export async function getRuntimeSnapshot(): Promise<DebugRuntimeResponse> {
+  return getJson<DebugRuntimeResponse>("/api/v1/debug/runtime");
+}
+
+export async function getDebugMetrics(): Promise<DebugMetricsResponse> {
+  return getJson<DebugMetricsResponse>("/api/v1/debug/metrics");
+}
+
+export async function getDebugTranscript(): Promise<DebugTranscriptResponse> {
+  return getJson<DebugTranscriptResponse>("/api/v1/debug/transcript");
+}
+
+export interface UpdateSettingsRequest {
+  debate_consensus_threshold?: number;
+  max_debate_rounds?: number;
+}
+
+export async function updateDebugSettings(req: UpdateSettingsRequest): Promise<{ status: string }> {
+  return postJson<{ status: string }>("/api/v1/debug/settings", req);
+}
+
+export async function generateReplyDrafts(
+  req: GenerateReplyRequest,
+): Promise<GenerateReplyResponse> {
+  return postJson<GenerateReplyResponse>("/api/v1/generate-reply", req);
+}
+
+export interface NormalizedEvent {
+  id: string;
+  provider: string;
+  title: string;
+  start: string;
+  end: string;
+  timezone?: string;
+  attendees: string[];
+  location?: string;
+  meeting_link?: string;
+  description?: string;
+  is_all_day: boolean;
+  source: string;
+  importance_score: number;
+  prep_required: boolean;
+  prep_notes?: string;
+  can_reschedule: boolean;
+  conflict_level: "low" | "medium" | "high";
+  block_type: BlockType;
+}
+
+export interface PriorityTask {
+  id: string;
+  title: string;
+  importance: string;
+  expected_duration: string;
+  recommended_time: string;
+  why_important: string;
+  status: "Do now" | "Before meeting" | "Can wait";
+}
+
+export interface DailyClarityResponse {
+  date: string;
+  timezone: string;
+  headline: string;
+  summary: string;
+  stats: {
+    meetings: number;
+    focusBlocks: number;
+    conflicts: number;
+    nextUp: string;
+  };
+  schedule_blocks: NormalizedEvent[];
+  top_priorities: PriorityTask[];
+  next_meeting: NormalizedEvent | null;
+  meeting_insights: Record<string, string>;
+  warnings: string[];
+  notes: string;
+}
+
+export async function getDailyClarity(
+  date: string,
+  userId: string,
+  googleAccessToken?: string,
+): Promise<DailyClarityResponse> {
+  const tokenQuery = googleAccessToken ? `&google_access_token=${encodeURIComponent(googleAccessToken)}` : "";
+  return getJson<DailyClarityResponse>(`/api/v1/daily-clarity?date=${date}&user_id=${userId}${tokenQuery}`);
+}
+
+export async function saveDailyNotes(
+  userId: string,
+  date: string,
+  content: string,
+): Promise<{ status: string; message: string }> {
+  return postJson<{ status: string; message: string }>("/api/v1/daily-clarity/notes", {
+    user_id: userId,
+    date,
+    content,
+  });
+}
+
+export async function rescheduleBlock(
+  userId: string,
+  blockId: string,
+  newStart: string,
+  newEnd: string,
+): Promise<{ status: string; message: string }> {
+  return postJson<{ status: string; message: string }>("/api/v1/daily-clarity/reschedule", {
+    user_id: userId,
+    block_id: blockId,
+    new_start: newStart,
+    new_end: newEnd,
+  });
 }
 
 export { ApiError };

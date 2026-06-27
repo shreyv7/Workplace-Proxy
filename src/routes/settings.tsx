@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Settings, Shield, Key, User, Bell, Check } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Settings, Shield, Key, User, Bell, Check, Loader2 } from "lucide-react";
+import { useAuth } from "../../personalisation/auth/useAuth";
+import { supabase } from "../lib/supabase";
+import { getRuntimeSnapshot, updateDebugSettings } from "../lib/api";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -16,14 +19,114 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SystemSettingsPage() {
+  const { user } = useAuth();
   const [userName, setUserName] = useState("Hackathon Developer");
   const [userEmail, setUserEmail] = useState("dev@workplaceproxy.ai");
   const [threshold, setThreshold] = useState(90); // Swarm consensus threshold
   const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const triggerSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  useEffect(() => {
+    if (user) {
+      setUserName(user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "Hackathon Developer");
+      setUserEmail(user.email ?? "dev@workplaceproxy.ai");
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const loadConsensusSettings = async () => {
+      const localThreshold = localStorage.getItem("system_settings_threshold");
+      if (localThreshold) {
+        setThreshold(parseInt(localThreshold, 10));
+        return;
+      }
+
+      try {
+        const runtime = await getRuntimeSnapshot();
+        if (runtime) {
+          const consensus = runtime.consensus_threshold;
+          const maxRounds = runtime.max_debate_rounds;
+          if (consensus === 1) {
+            setThreshold(50); // Relaxed
+          } else if (consensus === 2 && maxRounds <= 3) {
+            setThreshold(75); // Balanced
+          } else {
+            setThreshold(90); // Strict
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to load runtime snapshot for consensus parameters:", e);
+      }
+    };
+
+    loadConsensusSettings();
+  }, []);
+
+  const triggerSave = async () => {
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      if (user) {
+        const isMock = user.id?.startsWith("mock-");
+        if (!isMock) {
+          const updates: { email?: string; data?: { full_name?: string } } = {};
+          if (userEmail !== user.email) {
+            updates.email = userEmail;
+          }
+          if (userName !== user.user_metadata?.full_name) {
+            updates.data = { full_name: userName };
+          }
+
+          if (Object.keys(updates).length > 0) {
+            const { error } = await supabase.auth.updateUser(updates);
+            if (error) throw error;
+          }
+        } else {
+          const mockUser = {
+            ...user,
+            email: userEmail,
+            user_metadata: {
+              ...user.user_metadata,
+              full_name: userName,
+            },
+          };
+          localStorage.setItem("mock_user", JSON.stringify(mockUser));
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        }
+      }
+
+      let backendConsensus = 2;
+      let backendRounds = 3;
+
+      if (threshold < 70) {
+        backendConsensus = 1;
+        backendRounds = 2;
+      } else if (threshold >= 70 && threshold <= 85) {
+        backendConsensus = 2;
+        backendRounds = 3;
+      } else {
+        backendConsensus = 2;
+        backendRounds = 5;
+      }
+
+      localStorage.setItem("system_settings_threshold", String(threshold));
+
+      await updateDebugSettings({
+        debate_consensus_threshold: backendConsensus,
+        max_debate_rounds: backendRounds,
+      });
+
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: any) {
+      console.error("Failed to save settings changes:", err);
+      setSaveError(err?.message ?? "An error occurred while saving system changes.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -43,6 +146,11 @@ function SystemSettingsPage() {
         {saved && (
           <span className="text-xs font-semibold text-mint bg-mint-soft/30 px-3.5 py-2 rounded-xl flex items-center gap-1.5 animate-scale-in">
             <Check className="h-4 w-4" /> System changes saved successfully
+          </span>
+        )}
+        {saveError && (
+          <span className="text-xs font-semibold text-rose-500 bg-rose-500/10 px-3.5 py-2 rounded-xl flex items-center gap-1.5 animate-scale-in">
+            {saveError}
           </span>
         )}
       </header>
@@ -143,8 +251,10 @@ function SystemSettingsPage() {
         <div className="flex justify-end pt-2">
           <button
             onClick={triggerSave}
-            className="px-6 py-3 rounded-xl bg-foreground text-background font-bold text-xs hover:opacity-90 transition-opacity shadow-md"
+            disabled={isSaving}
+            className="px-6 py-3 rounded-xl bg-foreground text-background font-bold text-xs hover:opacity-90 transition-opacity shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
+            {isSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             Save system changes
           </button>
         </div>

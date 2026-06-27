@@ -3,7 +3,7 @@ const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 const { google } = require("googleapis");
-const { supabase } = require("../shared/supabase-client");
+const { supabase } = require("../shared/supabase-client.cjs");
 
 const app = express();
 app.use(cors());
@@ -281,9 +281,9 @@ app.post("/config", (req, res) => {
   }
 
   saveConfig({
-    clientId,
-    clientSecret,
-    redirectUri: redirectUri || `http://localhost:${PORT}/oauth2callback`
+    clientId: clientId.trim(),
+    clientSecret: clientSecret.trim(),
+    redirectUri: (redirectUri || `http://localhost:${PORT}/oauth2callback`).trim()
   });
 
   res.json({ success: true, message: "Email configuration saved successfully." });
@@ -324,6 +324,18 @@ app.get("/oauth2callback", async (req, res) => {
     console.error("Error exchanging OAuth code:", err);
     res.status(500).send("Failed to retrieve access token. " + err.message);
   }
+});
+
+// ── Disconnect Endpoint ──
+app.post("/disconnect", (req, res) => {
+  if (pollingInterval) clearInterval(pollingInterval);
+  pollingInterval = null;
+  oauth2Client = null;
+  
+  if (fs.existsSync(CONFIG_PATH)) fs.unlinkSync(CONFIG_PATH);
+  if (fs.existsSync(TOKEN_PATH)) fs.unlinkSync(TOKEN_PATH);
+
+  res.json({ success: true, message: "Email integration disconnected successfully." });
 });
 
 app.listen(PORT, () => {
