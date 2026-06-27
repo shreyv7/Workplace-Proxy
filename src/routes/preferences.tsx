@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SlidersHorizontal, Sparkles, Check, Info, Bell, Eye, EyeOff, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/preferences")({
@@ -20,9 +20,58 @@ function PreferencesPage() {
   const [deadline, setDeadline] = useState<"strict" | "flexible" | "suggest">("suggest");
   const [verbosity, setVerbosity] = useState<"minimal" | "balanced" | "detailed">("balanced");
   const [calendarMode, setCalendarMode] = useState<"auto" | "ask" | "never">("ask");
-  const [neuroMode, setNeuroMode] = useState(true);
-  const [animations, setAnimations] = useState(true);
-  const [sensoryDensity, setSensoryDensity] = useState(40); // slider 0-100
+  const [neuroMode, setNeuroMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("neuroMode");
+      return saved !== null ? saved === "true" : true;
+    }
+    return true;
+  });
+  const [animations, setAnimations] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("animations");
+      return saved !== null ? saved === "true" : true;
+    }
+    return true;
+  });
+  const [sensoryDensity, setSensoryDensity] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sensoryDensity");
+      return saved !== null ? parseInt(saved, 10) : 40;
+    }
+    return 40;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("neuroMode", String(neuroMode));
+    if (neuroMode) {
+      document.documentElement.classList.add("high-contrast");
+    } else {
+      document.documentElement.classList.remove("high-contrast");
+    }
+  }, [neuroMode]);
+
+  useEffect(() => {
+    localStorage.setItem("animations", String(animations));
+    if (animations) {
+      document.documentElement.classList.remove("no-animations");
+    } else {
+      document.documentElement.classList.add("no-animations");
+    }
+  }, [animations]);
+
+  useEffect(() => {
+    localStorage.setItem("sensoryDensity", String(sensoryDensity));
+    if (sensoryDensity <= 35) {
+      document.documentElement.classList.add("sensory-low");
+      document.documentElement.classList.remove("sensory-high");
+    } else if (sensoryDensity >= 75) {
+      document.documentElement.classList.add("sensory-high");
+      document.documentElement.classList.remove("sensory-low");
+    } else {
+      document.documentElement.classList.remove("sensory-low", "sensory-high");
+    }
+  }, [sensoryDensity]);
 
   const [savedMessage, setSavedMessage] = useState(false);
 

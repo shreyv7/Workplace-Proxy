@@ -27,6 +27,19 @@ try {
   var t = localStorage.getItem('theme');
   if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   if (t === 'dark') document.documentElement.classList.add('dark');
+  
+  var nm = localStorage.getItem('neuroMode');
+  if (nm !== 'false') document.documentElement.classList.add('high-contrast');
+  
+  var anim = localStorage.getItem('animations');
+  if (anim === 'false') document.documentElement.classList.add('no-animations');
+  
+  var sd = localStorage.getItem('sensoryDensity');
+  if (sd) {
+    var density = parseInt(sd, 10);
+    if (density <= 35) document.documentElement.classList.add('sensory-low');
+    if (density >= 75) document.documentElement.classList.add('sensory-high');
+  }
 } catch(e) {}
 `;
 

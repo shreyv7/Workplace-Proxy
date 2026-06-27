@@ -278,7 +278,7 @@ function DailyClarity() {
                           </div>
                           
                           {block.prep_required && (
-                            <div className="mt-2 text-[10px] text-amber-500 font-semibold flex items-center gap-1">
+                            <div className="mt-2 text-[10px] text-amber-500 font-semibold flex items-center gap-1 sensory-detail">
                               <Sparkles className="h-3 w-3 animate-pulse" /> Required prep checklist available
                             </div>
                           )}
@@ -365,11 +365,11 @@ function DailyClarity() {
                         </span>
                       </div>
 
-                      <p className="text-[9.5px] text-muted-foreground font-mono line-clamp-2 leading-relaxed">
+                      <p className="text-[9.5px] text-muted-foreground font-mono line-clamp-2 leading-relaxed sensory-detail">
                         {task.why_important}
                       </p>
 
-                      <div className="flex items-center justify-between mt-1 text-[9px] text-muted-foreground font-mono">
+                      <div className="flex items-center justify-between mt-1 text-[9px] text-muted-foreground font-mono sensory-detail">
                         <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {task.expected_duration}</span>
                         <span className="px-2 py-0.5 rounded-full bg-secondary/80 text-foreground font-bold">{task.status}</span>
                       </div>

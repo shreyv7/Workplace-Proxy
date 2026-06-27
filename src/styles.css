@@ -323,3 +323,65 @@
   border-color: oklch(0.72 0.22 290 / 40%);
 }
 
+
+/* Accessibility & Cognitive Overrides */
+.high-contrast {
+  --border: oklch(0.62 0.05 250);
+  --muted-foreground: oklch(0.18 0.03 250);
+  font-weight: 500;
+}
+.dark .high-contrast {
+  --border: oklch(0.78 0.015 244);
+  --muted-foreground: oklch(0.92 0.015 244);
+}
+
+.no-animations * {
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition-delay: 0s !important;
+}
+
+/* Sensory Density - Low-load mode overrides */
+.sensory-low .sensory-detail {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+.sensory-low .space-y-6 > * + * {
+  margin-top: 2rem !important;
+}
+.sensory-low .p-6, 
+.sensory-low .p-5, 
+.sensory-low .p-4 {
+  padding: 1.75rem !important;
+}
+.sensory-low .gap-6 {
+  gap: 2rem !important;
+}
+
+/* Sensory Density - High-load mode overrides */
+.sensory-high .p-6, 
+.sensory-high .p-5, 
+.sensory-high .p-4 {
+  padding: 0.75rem !important;
+}
+.sensory-high .gap-6 {
+  gap: 0.75rem !important;
+}
+.sensory-high .space-y-6 > * + * {
+  margin-top: 0.75rem !important;
+}
+.sensory-high .space-y-4 > * + * {
+  margin-top: 0.5rem !important;
+}
+.sensory-high h3,
+.sensory-high label,
+.sensory-high span,
+.sensory-high button,
+.sensory-high p,
+.sensory-high div {
+  font-size: 96% !important;
+}
+
+
