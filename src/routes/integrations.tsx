@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { initialIntegrations, Integration } from "../lib/mock-data";
-import { Plug, CheckCircle2, AlertCircle, RefreshCw, Plus, X, Settings2, Key, HelpCircle } from "lucide-react";
+import { Plug, CheckCircle2, AlertCircle, RefreshCw, Plus, X, Settings2, Key, HelpCircle, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/integrations")({
   validateSearch: (search: Record<string, unknown>) => search,
@@ -46,7 +46,10 @@ function IntegrationsSettings() {
         if (!mcpUrl) return it; // Skip mock integrations (jira, linear, etc)
 
         try {
-          const res = await fetch(`${mcpUrl}/health`, { signal: AbortSignal.timeout(1500) });
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 1500);
+          const res = await fetch(`${mcpUrl}/health`, { signal: controller.signal });
+          clearTimeout(timeoutId);
           if (!res.ok) throw new Error();
           const data = await res.json();
           
