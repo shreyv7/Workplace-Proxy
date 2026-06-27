@@ -230,7 +230,7 @@ function IntegrationsSettings() {
               key={it.id}
               className={[
                 "group relative rounded-2xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:shadow-md flex flex-col gap-4 animate-scale-in",
-                !isConnected ? "opacity-50 saturate-50 hover:opacity-80 transition-opacity" : ""
+                (!isConnected && !isConfigurable) ? "opacity-50 saturate-50 hover:opacity-80 transition-opacity" : ""
               ].join(" ")}
               style={{ animationDelay: `${idx * 40}ms` }}
             >
