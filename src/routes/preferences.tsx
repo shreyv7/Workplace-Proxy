@@ -106,6 +106,64 @@ function PreferencesPage() {
           </div>
         </div>
 
+        {/* Box 3: Sensory & Neuro-inclusive controls */}
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-6">
+          <div className="flex items-center gap-2 pb-2 border-b border-border/60">
+            <Eye className="h-4.5 w-4.5 text-muted-foreground" />
+            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Sensory presentation</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-foreground">High Contrast / Focus Palette</h4>
+                  <p className="text-[10px] text-muted-foreground">Swap colors out to maximize reader ease</p>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={neuroMode} 
+                  onChange={(e) => setNeuroMode(e.target.checked)}
+                  className="rounded border-border text-mint focus:ring-mint"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-foreground">Smooth transitions & animations</h4>
+                  <p className="text-[10px] text-muted-foreground">Enable calming keyframe motion filters</p>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={animations} 
+                  onChange={(e) => setAnimations(e.target.checked)}
+                  className="rounded border-border text-mint focus:ring-mint"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex justify-between text-[11px] font-medium text-muted-foreground">
+                <span>Sensory Density Level</span>
+                <span className="font-semibold text-foreground font-mono">{sensoryDensity}%</span>
+              </div>
+              <input 
+                type="range" 
+                min="10" 
+                max="100" 
+                value={sensoryDensity}
+                onChange={(e) => setSensoryDensity(parseInt(e.target.value))}
+                className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-mint"
+              />
+              <div className="flex justify-between text-[9px] text-muted-foreground font-mono">
+                <span>Minimalist (Low Load)</span>
+                <span>Standard</span>
+                <span>Hyper-granular Details</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Box 1: Synthesis Format */}
           <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
@@ -193,64 +251,6 @@ function PreferencesPage() {
                     <div className="text-[10px] text-muted-foreground mt-0.5">{item.desc}</div>
                   </div>
                 ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Box 3: Sensory & Neuro-inclusive controls */}
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-6">
-          <div className="flex items-center gap-2 pb-2 border-b border-border/60">
-            <Eye className="h-4.5 w-4.5 text-muted-foreground" />
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Sensory presentation</h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-foreground">High Contrast / Focus Palette</h4>
-                  <p className="text-[10px] text-muted-foreground">Swap colors out to maximize reader ease</p>
-                </div>
-                <input 
-                  type="checkbox" 
-                  checked={neuroMode} 
-                  onChange={(e) => setNeuroMode(e.target.checked)}
-                  className="rounded border-border text-mint focus:ring-mint"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-foreground">Smooth transitions & animations</h4>
-                  <p className="text-[10px] text-muted-foreground">Enable calming keyframe motion filters</p>
-                </div>
-                <input 
-                  type="checkbox" 
-                  checked={animations} 
-                  onChange={(e) => setAnimations(e.target.checked)}
-                  className="rounded border-border text-mint focus:ring-mint"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex justify-between text-[11px] font-medium text-muted-foreground">
-                <span>Sensory Density Level</span>
-                <span className="font-semibold text-foreground font-mono">{sensoryDensity}%</span>
-              </div>
-              <input 
-                type="range" 
-                min="10" 
-                max="100" 
-                value={sensoryDensity}
-                onChange={(e) => setSensoryDensity(parseInt(e.target.value))}
-                className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-mint"
-              />
-              <div className="flex justify-between text-[9px] text-muted-foreground font-mono">
-                <span>Minimalist (Low Load)</span>
-                <span>Standard</span>
-                <span>Hyper-granular Details</span>
               </div>
             </div>
           </div>
