@@ -79,12 +79,12 @@ export function ClarityInbox({ messages, selectedMessageId, onSelectMessage }: P
               
               <div className="flex items-center gap-1.5">
                 {m.acknowledged ? (
-                  <span className="flex items-center gap-1 text-[10px] text-mint font-medium">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Scheduled
+                  <span className="flex items-center gap-1 text-[9px] font-bold text-mint bg-mint-soft/10 dark:bg-mint-soft/25 px-2.5 py-0.5 rounded-full border border-mint/20 tracking-wide uppercase">
+                    <CheckCircle2 className="h-3 w-3 text-mint" /> Scheduled
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                    <AlertCircle className="h-3.5 w-3.5 text-indigo-500/80" /> Pending action
+                  <span className="flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20 tracking-wide uppercase">
+                    <AlertCircle className="h-3 w-3 text-amber-500" /> Pending action
                   </span>
                 )}
               </div>

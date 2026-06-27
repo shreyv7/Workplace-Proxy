@@ -25,119 +25,142 @@ export type ClarityMessage = {
 
 export const initialMessages: ClarityMessage[] = [
   {
-    message_id: "msg_001",
-    sender_name: "Manager Tom",
-    sender_role: "Engineering Lead",
-    timestamp: "09:12",
-    original_text:
-      "Hey, can you take a look at that deployment thing whenever? No rush, but kind of important. Also ping the infra folks if it feels off.",
+    message_id: "msg_test_1",
+    sender_name: "Tom (Infra)",
+    sender_role: "Lead DevOps",
+    timestamp: "09:15",
+    original_text: "Hey, let's deploy the staging fixes around 14:00 today. We need about 45 minutes to run regression tests.",
     source: "slack",
     importance: "high",
-    ambiguity: "high",
+    ambiguity: "low",
     agent_assigned: "Interceptor Agent",
     translation_status: "completed",
     translated_bullet_points: {
-      action: "Deploy latest staging branch to production",
+      action: "Verify and run staging deployment",
       complexity: "High",
-      expected_duration: "90 mins",
+      expected_duration: "45 mins",
       steps: [
-        "Verify staging branch passes CI checks",
-        "Coordinate window with Infra (Slack #infra)",
-        "Run production deploy script & monitor for 20 mins",
-      ],
+        "Verify staging CI build passes",
+        "Coordinate deployment script run with infra",
+        "Deploy and monitor logs for 15 mins"
+      ]
     },
     suggested_start_time: "14:00",
-    suggested_end_time: "15:30",
+    suggested_end_time: "14:45",
     fidelity_rating: 4,
     acknowledged: false,
-    reasoning: "Classified as High Priority based on deployment blockers. Scheduled for post-lunch slot to leverage team alignment windows and protect your morning deep work block. Added Infra check due to explicit mention of coordination.",
-    debate_id: "deb_001",
+    reasoning: "Urgent deployment requested. Scheduled for 14:00 today post-standup.",
+    debate_id: "deb_001"
   },
   {
-    message_id: "msg_002",
+    message_id: "msg_test_2",
     sender_name: "Priya (Design)",
     sender_role: "Product Designer",
-    timestamp: "10:04",
-    original_text:
-      "Could you maybe loop back on the onboarding flow? The colors feel a bit much and we should probably revisit the empty state at some point.",
+    timestamp: "10:05",
+    original_text: "We need to align on the onboarding flow roadmap at 14:15. Can you make 45 minutes work?",
     source: "jira",
     importance: "medium",
-    ambiguity: "medium",
+    ambiguity: "low",
     agent_assigned: "Context Agent",
     translation_status: "completed",
     translated_bullet_points: {
-      action: "Review onboarding flow palette & empty state",
+      action: "Align on onboarding flow roadmap",
       complexity: "Medium",
       expected_duration: "45 mins",
       steps: [
-        "Open Figma file: Onboarding v3",
-        "Lower saturation on hero gradient",
-        "Draft empty state copy + illustration spec",
-      ],
+        "Open Figma: Onboarding v3",
+        "Review color palette choices",
+        "Map empty state roadmap milestones"
+      ]
     },
-    suggested_start_time: "11:30",
-    suggested_end_time: "12:15",
-    fidelity_rating: 3,
+    suggested_start_time: "14:15",
+    suggested_end_time: "15:00",
+    fidelity_rating: 4,
     acknowledged: false,
-    reasoning: "Assigned as Medium Ambiguity. The designer asks for feedback. We linked the Figma file automatically by locating the active task branch 'onboarding-flow-v3' in corporate memory.",
-    debate_id: "deb_002",
+    reasoning: "Figma design alignment meeting requested. Collision expected with Staging Deployment.",
+    debate_id: "deb_002"
   },
   {
-    message_id: "msg_003",
-    sender_name: "Client – Northwind",
+    message_id: "msg_test_3",
+    sender_name: "Sprint Triage",
+    sender_role: "Product Manager",
+    timestamp: "11:20",
+    original_text: "Critical budget approval check at 14:00. Needs 30 minutes to review Q3 spreadsheets.",
+    source: "teams",
+    importance: "high",
+    ambiguity: "low",
+    agent_assigned: "Scheduler Agent",
+    translation_status: "completed",
+    translated_bullet_points: {
+      action: "Approve Q3 sprint budget spreadsheets",
+      complexity: "High",
+      expected_duration: "30 mins",
+      steps: [
+        "Open budget tracker in Google Sheets",
+        "Check line-item deviations",
+        "Sign off and ping Sprint Triage"
+      ]
+    },
+    suggested_start_time: "14:00",
+    suggested_end_time: "14:30",
+    fidelity_rating: 5,
+    acknowledged: false,
+    reasoning: "Strict financial deadline requires budget review. Overlaps with deploy sync and figma design.",
+    debate_id: "deb_003"
+  },
+  {
+    message_id: "msg_test_4",
+    sender_name: "Sarah (Marketing)",
+    sender_role: "Growth Lead",
+    timestamp: "11:30",
+    original_text: "Can we quickly review copy docs for the launch campaign at 10:00? Just 30 minutes.",
+    source: "email",
+    importance: "low",
+    ambiguity: "low",
+    agent_assigned: "Translator Agent",
+    translation_status: "completed",
+    translated_bullet_points: {
+      action: "Review launch copy docs with Sarah",
+      complexity: "Low",
+      expected_duration: "30 mins",
+      steps: [
+        "Verify Google Doc content is approved by branding",
+        "Provide quick formatting check",
+        "Ping Sarah with approvals"
+      ]
+    },
+    suggested_start_time: "10:00",
+    suggested_end_time: "10:30",
+    fidelity_rating: 4,
+    acknowledged: false,
+    reasoning: "Campaign copy review fits in the mid-morning gap.",
+  },
+  {
+    message_id: "msg_test_5",
+    sender_name: "Client - Northwind",
     sender_role: "External Stakeholder",
-    timestamp: "10:48",
-    original_text:
-      "Following up on our convo — would love to align on the Q3 roadmap soon. Open Thursday?",
+    timestamp: "12:10",
+    original_text: "Roadmap update review meeting scheduled for 11:30. Let's block 45 minutes.",
     source: "email",
     importance: "medium",
     ambiguity: "low",
     agent_assigned: "Scheduler Agent",
     translation_status: "completed",
     translated_bullet_points: {
-      action: "Schedule 30-min roadmap alignment call",
-      complexity: "Low",
-      expected_duration: "15 mins to schedule",
-      steps: [
-        "Check calendar for Thursday availability",
-        "Send 3 time slots via email",
-        "Add to CRM as ‘Q3 alignment’",
-      ],
-    },
-    suggested_start_time: "16:00",
-    suggested_end_time: "16:30",
-    fidelity_rating: 5,
-    acknowledged: false,
-    reasoning: "Low Ambiguity scheduling request. Identified target date (Thursday) and suggested calendar block during your standard external meeting window (15:00 - 17:00).",
-    debate_id: "deb_003",
-  },
-  {
-    message_id: "msg_004",
-    sender_name: "Sarah (Marketing)",
-    sender_role: "Growth Lead",
-    timestamp: "11:15",
-    original_text:
-      "Can we sync on the launch campaign tomorrow? Need to approve the budget breakdown and clarify if copy docs are ready.",
-    source: "teams",
-    importance: "low",
-    ambiguity: "medium",
-    agent_assigned: "Translator Agent",
-    translation_status: "completed",
-    translated_bullet_points: {
-      action: "Approve launch campaign budget & review copy docs",
+      action: "Northwind Q3 Roadmap Sync",
       complexity: "Medium",
-      expected_duration: "30 mins",
+      expected_duration: "45 mins",
       steps: [
-        "Verify copy doc status in Google Drive folder",
-        "Review budget spreadsheet lines for Q3 launch",
-        "Send confirmation emoji or brief comment to Sarah",
-      ],
+        "Review current slides in Q3 deck",
+        "Discuss roadmap milestones",
+        "Document follow-up questions"
+      ]
     },
-    suggested_start_time: "10:00",
-    suggested_end_time: "10:30",
+    suggested_start_time: "11:30",
+    suggested_end_time: "12:15",
     fidelity_rating: 4,
-    acknowledged: true,
-    reasoning: "Classified as low urgency since campaign launches in 2 weeks. Suggested tomorrow morning slot before your focus window.",
+    acknowledged: false,
+    reasoning: "Standard external sync slot.",
   }
 ];
 
@@ -154,34 +177,7 @@ export type CalendarBlock = {
   reason?: string;
 };
 
-export const initialCalendar: CalendarBlock[] = [
-  { 
-    id: "blk_focus_1", 
-    start: "09:00", 
-    end: "11:00", 
-    title: "Deep Work — Architecture review", 
-    type: "focus",
-    agent_generated: false
-  },
-  { 
-    id: "blk_meet_1", 
-    start: "13:00", 
-    end: "13:45", 
-    title: "Team standup", 
-    type: "meeting",
-    agent_generated: false
-  },
-  { 
-    id: "blk_focus_2", 
-    start: "15:45", 
-    end: "17:30", 
-    title: "Deep Work — Quiet block", 
-    type: "focus",
-    agent_generated: true,
-    confidence: 94,
-    reason: "Automatically scheduled based on high cognitive load prediction for late afternoon."
-  },
-];
+export const initialCalendar: CalendarBlock[] = [];
 
 export const traceLogSeed: string[] = [
   '{"t":"09:11:42","agent":"Interceptor Agent","tool":"channel_intercept","msg":"Inbound stream: slack.manager_tom.new_message"}',

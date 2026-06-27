@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Lock, Brain, Sparkles, HelpCircle } from "lucide-react";
+import { Check, Lock, Brain, Sparkles, AlertTriangle, Users, Calendar, Clock } from "lucide-react";
 import type { CalendarBlock } from "../lib/mock-data";
 
 type Props = {
@@ -7,183 +7,190 @@ type Props = {
   onAcknowledge: (id: string) => void;
 };
 
-const START_HOUR = 9;
-const END_HOUR = 18;
-const HOUR_HEIGHT = 70; // px per hour
-
 const toMinutes = (t: string) => {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
 };
 
-const topFor = (start: string) =>
-  ((toMinutes(start) - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+const calculateDuration = (start: string, end: string) => {
+  return toMinutes(end) - toMinutes(start);
+};
 
-const heightFor = (start: string, end: string) =>
-  ((toMinutes(end) - toMinutes(start)) / 60) * HOUR_HEIGHT;
+const checkOverlaps = (block: CalendarBlock, allBlocks: CalendarBlock[]) => {
+  const startB = toMinutes(block.start);
+  const endB = toMinutes(block.end);
+  
+  return allBlocks.filter(other => {
+    if (other.id === block.id) return false;
+    const startO = toMinutes(other.start);
+    const endO = toMinutes(other.end);
+    return startB < endO && startO < endB;
+  });
+};
 
 export function CalendarTimeline({ blocks, onAcknowledge }: Props) {
-  const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
+  // Filter out task blocks that are not acknowledged (added to calendar) yet
+  const visibleBlocks = blocks.filter(b => {
+    if (b.type === "task") {
+      return b.acknowledged === true;
+    }
+    return true;
+  });
+
+  // Sort blocks chronologically
+  const sortedBlocks = [...visibleBlocks].sort((a, b) => {
+    const startA = toMinutes(a.start);
+    const startB = toMinutes(b.start);
+    if (startA !== startB) return startA - startB;
+    return toMinutes(a.end) - toMinutes(a.start) - (toMinutes(b.end) - toMinutes(b.start));
+  });
 
   return (
-    <div className="relative select-none">
-      <div className="flex">
-        {/* Hour gutter */}
-        <div className="w-14 shrink-0">
-          {hours.map((h) => (
-            <div
-              key={h}
-              style={{ height: HOUR_HEIGHT }}
-              className="flex items-start justify-end pr-3 pt-0 text-[10px] font-mono text-muted-foreground"
-            >
-              {String(h).padStart(2, "0")}:00
-            </div>
-          ))}
-        </div>
+    <div className="relative pl-8 select-none flex flex-col gap-6">
+      {/* Visual vertical timeline connector line */}
+      <div className="absolute left-[15px] top-4 bottom-4 w-[2px] bg-border/60" />
 
-        {/* Track */}
-        <div
-          className="relative flex-1 rounded-2xl border border-border bg-card/40"
-          style={{ height: (END_HOUR - START_HOUR) * HOUR_HEIGHT }}
-        >
-          {hours.slice(0, -1).map((h, i) => (
-            <div
-              key={h}
-              className="absolute left-0 right-0 border-t border-dashed border-border/60"
-              style={{ top: (i + 1) * HOUR_HEIGHT - HOUR_HEIGHT, height: HOUR_HEIGHT }}
+      {sortedBlocks.length > 0 ? (
+        sortedBlocks.map((b) => {
+          const overlaps = checkOverlaps(b, visibleBlocks);
+          return (
+            <BlockCard 
+              key={b.id} 
+              b={b} 
+              overlaps={overlaps} 
+              onAcknowledge={onAcknowledge} 
             />
-          ))}
-
-          {blocks.map((b) => (
-            <BlockEl key={b.id} b={b} onAcknowledge={onAcknowledge} />
-          ))}
+          );
+        })
+      ) : (
+        <div className="py-8 text-center text-muted-foreground text-xs font-semibold">
+          No calendar events scheduled for today.
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
-function BlockEl({
+function BlockCard({
   b,
+  overlaps,
   onAcknowledge,
 }: {
   b: CalendarBlock;
+  overlaps: CalendarBlock[];
   onAcknowledge: (id: string) => void;
 }) {
   const [ackAnim, setAckAnim] = useState(false);
-  const [showTooltip, setShowTooltip] = useState(false);
-  
-  const top = topFor(b.start);
-  const h = heightFor(b.start, b.end);
+  const acked = b.acknowledged;
 
-  const style: React.CSSProperties = {
-    top,
-    height: h,
-    left: 8,
-    right: 8,
-  };
+  // Determine styles and icon based on type
+  let icon = <Brain className="h-3.5 w-3.5 text-indigo-500" />;
+  let typeLabel = "Deep Focus Window";
+  let nodeBg = "bg-indigo-500/10 border-indigo-500/30 text-indigo-500";
+  let cardBorder = "border-indigo-500/20 bg-indigo-500/[0.02]";
 
-  if (b.type === "focus") {
-    const isAgent = b.agent_generated;
-    return (
-      <div
-        style={style}
-        className="absolute rounded-xl border border-deep-focus/60 bg-deep-focus/25 p-3.5 backdrop-blur-sm shadow-xs transition-all hover:bg-deep-focus/35"
-      >
-        <div className="flex items-center gap-2 text-[10px] font-semibold text-foreground/75">
-          <Brain className="h-3.5 w-3.5 text-slate-cool" />
-          <span>Deep Focus Window</span>
-          {isAgent && (
-            <span className="ml-auto flex items-center gap-0.5 rounded-full bg-mint-soft px-1.5 py-0.5 font-mono text-[9px] text-mint">
-              <Sparkles className="h-2.5 w-2.5 animate-pulse-soft" /> Agent Protected
+  if (b.type === "meeting") {
+    icon = <Users className="h-3.5 w-3.5 text-lavender" />;
+    typeLabel = "Sync / Meeting";
+    nodeBg = "bg-lavender/10 border-lavender/30 text-lavender";
+    cardBorder = "border-lavender/25 bg-lavender-soft/[0.02]";
+  } else if (b.type === "task") {
+    typeLabel = acked ? "Scheduled Task" : "Draft Task Proposal";
+    icon = acked 
+      ? <Check className="h-3.5 w-3.5 text-mint" /> 
+      : <Sparkles className="h-3.5 w-3.5 text-amber-500 animate-pulse-soft" />;
+    nodeBg = acked 
+      ? "bg-mint/10 border-mint/30 text-mint" 
+      : "bg-amber-500/10 border-amber-500/30 text-amber-500";
+    cardBorder = acked 
+      ? "border-mint/25 bg-mint-soft/[0.02]" 
+      : "border-amber-soft/25 bg-amber-tint/[0.02]";
+  }
+
+  return (
+    <div className="relative flex flex-col gap-1.5 animate-slide-up">
+      {/* Node Bullet point on the timeline */}
+      <div className={[
+        "absolute -left-[33px] top-[14px] z-10 flex h-6 w-6 items-center justify-center rounded-full border bg-card shadow-xs",
+        nodeBg
+      ].join(" ")}>
+        {icon}
+      </div>
+
+      {/* Main card */}
+      <div className={[
+        "rounded-2xl border p-4.5 shadow-2xs hover:shadow-xs transition-all duration-200",
+        cardBorder,
+        ackAnim ? "scale-[1.01] ring-2 ring-mint/25" : ""
+      ].join(" ")}>
+        
+        {/* Header line: type label and confidence metrics */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground font-mono">
+            {typeLabel}
+          </span>
+          {b.confidence && (
+            <span className="font-mono text-[9px] font-bold text-indigo-500 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded-md">
+              {b.confidence}% confidence
             </span>
           )}
         </div>
-        <div className="mt-1 text-xs font-semibold text-foreground">{b.title}</div>
-        <div className="mt-0.5 text-[10px] font-mono text-muted-foreground">
-          {b.start} – {b.end}
+
+        {/* Title */}
+        <h3 className="mt-2 text-sm font-bold text-foreground leading-tight tracking-tight">
+          {b.title}
+        </h3>
+
+        {/* Time slot pill */}
+        <div className="mt-3 flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-foreground/80 bg-secondary/80 border border-border/80 px-2 py-0.5 rounded-full">
+            <Clock className="h-3 w-3 text-muted-foreground" />
+            {b.start} – {b.end}
+          </span>
+          <span className="text-[10px] font-mono text-muted-foreground">
+            ({calculateDuration(b.start, b.end)} mins)
+          </span>
         </div>
+
+        {/* Scheduling reasoning */}
         {b.reason && (
-          <p className="mt-1 text-[10px] text-muted-foreground italic truncate">
+          <p className="mt-2.5 text-xs text-muted-foreground leading-relaxed italic bg-secondary/30 p-2.5 rounded-xl border border-border/40">
             {b.reason}
           </p>
         )}
-      </div>
-    );
-  }
 
-  if (b.type === "meeting") {
-    return (
-      <div
-        style={style}
-        className="absolute rounded-xl border border-lavender/50 bg-lavender-soft/45 p-3.5 shadow-xs transition-all hover:bg-lavender-soft/65"
-      >
-        <div className="text-[10px] font-semibold text-lavender uppercase tracking-wider">Sync / Meeting</div>
-        <div className="mt-1 text-xs font-semibold text-foreground">{b.title}</div>
-        <div className="text-[10px] font-mono text-muted-foreground">
-          {b.start} – {b.end}
-        </div>
-      </div>
-    );
-  }
-
-  // Task Block
-  const acked = b.acknowledged;
-  return (
-    <div
-      style={style}
-      className={[
-        "absolute flex flex-col rounded-xl border p-3.5 transition-all shadow-xs",
-        acked
-          ? "border-mint/55 bg-mint-soft/50 hover:bg-mint-soft/70"
-          : "border-amber-soft/50 bg-amber-tint/40 hover:bg-amber-tint/60",
-        ackAnim ? "scale-[1.01] ring-2 ring-mint/35" : "",
-      ].join(" ")}
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
-    >
-      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground/75">
-        {acked ? <Lock className="h-3 w-3 text-mint" /> : <Sparkles className="h-3 w-3 text-amber-500 animate-pulse-soft" />}
-        <span>Agent Scheduled Task</span>
-        {b.confidence && (
-          <span className="ml-auto font-mono text-[9px] text-indigo-500 bg-secondary/80 px-1 rounded">
-            {b.confidence}% cert
-          </span>
-        )}
-      </div>
-      
-      <div className="mt-1 text-xs font-semibold text-foreground">{b.title}</div>
-      <div className="text-[10px] font-mono text-muted-foreground mt-0.5">
-        {b.start} – {b.end}
-      </div>
-
-      {showTooltip && b.reason && (
-        <div className="absolute left-1/2 -bottom-16 z-25 -translate-x-1/2 w-64 rounded-xl border border-border bg-card p-3 shadow-md animate-fade-in text-[10px] text-muted-foreground leading-normal">
-          <div className="flex items-center gap-1 text-[11px] font-semibold text-foreground mb-1">
-            <HelpCircle className="h-3.5 w-3.5 text-mint" /> Scheduling Rationale
+        {/* Time clash overlap warnings */}
+        {overlaps.length > 0 && (
+          <div className="mt-2.5 flex items-start gap-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+            <span>
+              <strong>Conflict:</strong> Overlaps with {overlaps.map(o => `"${o.title}"`).join(", ")}
+            </span>
           </div>
-          {b.reason}
-        </div>
-      )}
+        )}
 
-      <div className="mt-auto pt-2 flex items-center justify-between">
-        <button
-          disabled={acked}
-          onClick={() => {
-            setAckAnim(true);
-            setTimeout(() => setAckAnim(false), 600);
-            onAcknowledge(b.id);
-          }}
-          className={[
-            "inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold transition-all",
-            acked
-              ? "bg-mint/20 text-mint"
-              : "bg-foreground/80 text-background hover:bg-foreground shadow-sm",
-          ].join(" ")}
-        >
-          <Check className={`h-3 w-3 ${ackAnim ? "animate-scale-in" : ""}`} />
-          {acked ? "Locked to slot" : "Confirm Slot"}
-        </button>
+        {/* Action Button for Tasks */}
+        {b.type === "task" && (
+          <div className="mt-4 pt-3.5 border-t border-border/40 flex justify-end">
+            <button
+              disabled={acked}
+              onClick={() => {
+                setAckAnim(true);
+                setTimeout(() => setAckAnim(false), 600);
+                onAcknowledge(b.id);
+              }}
+              className={[
+                "inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition-all cursor-pointer",
+                acked
+                  ? "bg-mint/15 text-mint border border-mint/20"
+                  : "bg-foreground/90 text-background hover:bg-foreground shadow-sm hover:scale-[1.01]"
+              ].join(" ")}
+            >
+              <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+              {acked ? "Locked to Slot" : "Confirm Slot Time"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

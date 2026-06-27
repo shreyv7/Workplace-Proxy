@@ -129,7 +129,7 @@ export function TranslatedTaskCard({ message, onAcknowledge, onOpenDebate }: Tra
           ].join(" ")}
         >
           <Check className="h-4 w-4" strokeWidth={2} />
-          {message.acknowledged ? "Scheduled" : "Commit to Calendar"}
+          {message.acknowledged ? "Scheduled" : "Add to Calendar"}
         </button>
         
         <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground hover:bg-secondary/40 hover:text-foreground transition-colors shrink-0">
