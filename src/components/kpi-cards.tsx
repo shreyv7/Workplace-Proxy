@@ -1,45 +1,56 @@
 import { kpiStats } from "../lib/mock-data";
 import { Zap, MessageSquare, Timer, ShieldAlert, Sparkles, TrendingDown } from "lucide-react";
 
-export function KpiCards() {
+interface KpiCardsProps {
+  metrics?: {
+    clarity_score: number;
+    hours_saved: number;
+    messages_simplified: number;
+    context_switches_prevented: number;
+  };
+}
+
+export function KpiCards({ metrics }: KpiCardsProps) {
+  const activeMetrics = metrics || kpiStats;
   const stats = [
     {
       title: "Clarity Score",
-      value: `${kpiStats.clarity_score}%`,
+      value: `${activeMetrics.clarity_score}%`,
       subtext: "Cognitive overhead optimized",
       icon: Sparkles,
       color: "text-mint bg-mint-soft/40",
       accent: "bg-mint",
-      sparkline: [40, 55, 68, 72, 85, 96]
+      sparkline: [40, 55, 68, 72, 85, activeMetrics.clarity_score]
     },
     {
       title: "Time Protected",
-      value: `${kpiStats.hours_saved}h`,
+      value: `${activeMetrics.hours_saved}h`,
       subtext: "Saved by automated briefings",
       icon: Timer,
       color: "text-indigo-500 bg-indigo-50 dark:bg-indigo-950/20",
       accent: "bg-indigo-500",
-      sparkline: [12, 14.5, 18, 20.2, 22.5, 24.5]
+      sparkline: [12, 14.5, 18, 20.2, 22.5, activeMetrics.hours_saved]
     },
     {
       title: "Signals Synthesized",
-      value: kpiStats.messages_simplified,
+      value: activeMetrics.messages_simplified,
       subtext: "Cluttered posts streamlined",
       icon: MessageSquare,
       color: "text-blue-500 bg-blue-50 dark:bg-blue-950/20",
       accent: "bg-blue-500",
-      sparkline: [60, 85, 102, 115, 130, 142]
+      sparkline: [60, 85, 102, 115, 130, activeMetrics.messages_simplified]
     },
     {
       title: "Context Switches Blocked",
-      value: kpiStats.context_switches_prevented,
+      value: activeMetrics.context_switches_prevented,
       subtext: "Defensive schedule saves",
       icon: ShieldAlert,
       color: "text-amber-500 bg-amber-soft/40",
       accent: "bg-amber-soft",
-      sparkline: [10, 18, 24, 28, 33, 38]
+      sparkline: [10, 18, 24, 28, 33, activeMetrics.context_switches_prevented]
     }
   ];
+
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 w-full">

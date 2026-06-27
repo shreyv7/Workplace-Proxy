@@ -37,10 +37,17 @@ function DailyClarity() {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ClarityMessage[]>([]);
   const [calendar, setCalendar] = useState<CalendarBlock[]>([]);
+  const [metrics, setMetrics] = useState({
+    clarity_score: 96,
+    hours_saved: 24.5,
+    messages_simplified: 142,
+    context_switches_prevented: 38
+  });
   const [selectedMessageId, setSelectedMessageId] = useState<string>("");
   const [selectedDebateId, setSelectedDebateId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"triage" | "calendar">("triage");
   const [isSeeding, setIsSeeding] = useState(false);
+
   const [showBlueprint, setShowBlueprint] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("show_blueprint") !== "false";
@@ -187,10 +194,31 @@ function DailyClarity() {
           reason: c.reason
         })));
       }
+
+      // Fetch telemetry data to compile metrics
+      let { data: dbTelemetry } = await supabase
+        .from("telemetry_history")
+        .select("*")
+        .order("date", { ascending: false });
+
+      if (dbTelemetry && dbTelemetry.length > 0) {
+        const messagesSimplified = dbMessages ? dbMessages.length : 142;
+        const totalHoursSaved = dbTelemetry.reduce((acc: number, curr: any) => acc + (parseFloat(curr.hours_saved) || 0), 0);
+        const totalSwitches = dbTelemetry.reduce((acc: number, curr: any) => acc + (parseInt(curr.context_switches_prevented) || 0), 0);
+        const latestClarity = dbTelemetry[0].clarity_score || 96;
+
+        setMetrics({
+          clarity_score: latestClarity,
+          hours_saved: parseFloat(totalHoursSaved.toFixed(1)),
+          messages_simplified: messagesSimplified,
+          context_switches_prevented: totalSwitches
+        });
+      }
     } catch (e) {
       console.error("Database connection issue: ", e);
     }
   };
+
 
   // 2. Setup Realtime Sync Subscriptions
   useEffect(() => {
@@ -499,8 +527,9 @@ function DailyClarity() {
 
         {/* Top telemetry level KPI Cards */}
         <div className="mb-8">
-          <KpiCards />
+          <KpiCards metrics={metrics} />
         </div>
+
 
         {/* Tab selection */}
         <div className="flex border-b border-border/80 mb-8 gap-6">
