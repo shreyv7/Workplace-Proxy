@@ -337,12 +337,12 @@ function IntegrationsSettings() {
               {configuringId === "int_slack" ? (
                 <>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Slack Bot OAuth Token</label>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Slack Access Token</label>
                     <div className="relative">
                       <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <input
                         type="password"
-                        placeholder="xoxb-..."
+                        placeholder="xoxb-... or xoxp-... / xoxe..."
                         value={slackToken}
                         onChange={(e) => setSlackToken(e.target.value)}
                         className="w-full rounded-xl border border-border bg-background/50 pl-10 pr-4 py-2.5 text-sm focus:border-cyan-500 focus:outline-hidden transition-all"
@@ -350,7 +350,7 @@ function IntegrationsSettings() {
                       />
                     </div>
                     <p className="text-[10px] text-muted-foreground leading-normal">
-                      Provide the Bot User OAuth Token from your Slack App configuration page (starts with <code>xoxb-</code>).
+                      Provide the Bot OAuth Token (starts with <code>xoxb-</code>) or Access Token (starts with <code>xoxp-</code> / <code>xoxe</code>) from your Slack App page.
                     </p>
                   </div>
 
