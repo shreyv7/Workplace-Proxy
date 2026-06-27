@@ -216,11 +216,6 @@ function IntegrationsSettings() {
             Manage live authentication tokens, webhook handlers, and vector parsing settings for external services.
           </p>
         </div>
-
-        <button className="inline-flex items-center gap-2 rounded-xl bg-foreground text-background hover:opacity-90 text-xs font-semibold px-4.5 py-2.5 transition-all shadow-sm">
-          <Plus className="h-4 w-4" />
-          Connect New Account
-        </button>
       </header>
 
       {/* Integrations Grid */}
@@ -233,7 +228,10 @@ function IntegrationsSettings() {
           return (
             <div
               key={it.id}
-              className="group relative rounded-2xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:shadow-md flex flex-col gap-4 animate-scale-in"
+              className={[
+                "group relative rounded-2xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:shadow-md flex flex-col gap-4 animate-scale-in",
+                !isConnected ? "opacity-50 saturate-50 hover:opacity-80 transition-opacity" : ""
+              ].join(" ")}
               style={{ animationDelay: `${idx * 40}ms` }}
             >
               {/* Top metadata */}
