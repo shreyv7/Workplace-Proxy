@@ -33,6 +33,8 @@ const navSections = [
     items: [
       { to: "/dashboard", label: "Daily Clarity", icon: Sun },
       { to: "/inbox", label: "Communication Inbox", icon: Inbox },
+      { to: "/preferences", label: "Preferences", icon: SlidersHorizontal },
+      { to: "/insights", label: "Insights Dashboard", icon: TrendingUp },
     ],
   },
   {
@@ -40,8 +42,6 @@ const navSections = [
     label: "Internal Tools",
     hint: "Swarm internals, memory, and platform controls",
     items: [
-      { to: "/preferences", label: "Preferences", icon: SlidersHorizontal },
-      { to: "/insights", label: "Insights Dashboard", icon: TrendingUp },
       { to: "/integrations", label: "Integrations", icon: Link2 },
       { to: "/memory", label: "Cognitive Memory", icon: Brain },
       { to: "/agents", label: "Agent Swarm", icon: Bot },
