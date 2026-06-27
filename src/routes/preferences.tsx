@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { SlidersHorizontal, Sparkles, Check, Info, Bell, Eye, EyeOff } from "lucide-react";
+import { SlidersHorizontal, Sparkles, Check, Info, Bell, Eye, EyeOff, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/preferences")({
   head: () => ({
@@ -25,6 +25,44 @@ function PreferencesPage() {
   const [sensoryDensity, setSensoryDensity] = useState(40); // slider 0-100
 
   const [savedMessage, setSavedMessage] = useState(false);
+
+  const [rawMessage, setRawMessage] = useState(
+    "Hey, can we quickly align on the roadmap sync whenever you get a chance? Might need to pivot some priorities soon."
+  );
+  const [previewOutput, setPreviewOutput] = useState("");
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isSimulated, setIsSimulated] = useState(false);
+
+  const handlePreviewSynthesis = async () => {
+    setIsPreviewLoading(true);
+    setPreviewOutput("");
+    try {
+      const response = await fetch("http://localhost:8000/api/v1/synthesis/preview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: rawMessage,
+          format: style,
+          verbosity: verbosity,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to connect to Swarm synthesis api.");
+      }
+
+      const data = await response.json();
+      setPreviewOutput(data.synthesized_text);
+      setIsSimulated(!!data.simulated);
+    } catch (err: any) {
+      setPreviewOutput(`Error: ${err.message || "Something went wrong during Swarm synthesis."}`);
+      setIsSimulated(true);
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
 
   const saveSettings = () => {
     setSavedMessage(true);
@@ -213,6 +251,94 @@ function PreferencesPage() {
                 <span>Minimalist (Low Load)</span>
                 <span>Standard</span>
                 <span>Hyper-granular Details</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Box 4: Swarm Synthesis Sandbox */}
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-6 relative overflow-hidden group">
+          {/* Subtle neon ambient overlay */}
+          <div className="absolute -inset-px bg-gradient-to-r from-mint/5 to-lavender/5 rounded-2xl opacity-60 pointer-events-none" />
+
+          <div className="flex items-center gap-2 pb-2 border-b border-border/60 relative z-10">
+            <Sparkles className="h-4.5 w-4.5 text-mint animate-pulse" />
+            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Swarm Translation Sandbox</h3>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+            {/* Input message - 5cols */}
+            <div className="lg:col-span-5 flex flex-col gap-3">
+              <label className="text-xs font-semibold text-foreground/80 block">Vague Corporate Signal Input</label>
+              <textarea
+                value={rawMessage}
+                onChange={(e) => setRawMessage(e.target.value)}
+                placeholder="Type a vague Slack or email message here to test..."
+                className="w-full text-xs font-mono rounded-xl border border-border bg-secondary/30 text-foreground p-3.5 outline-hidden focus:border-mint focus:ring-1 focus:ring-mint/20 min-h-[140px] resize-y leading-relaxed transition-all duration-200"
+              />
+              <button
+                onClick={handlePreviewSynthesis}
+                disabled={isPreviewLoading || !rawMessage.trim()}
+                className={[
+                  "w-full py-3 rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-all duration-200 text-center flex items-center justify-center gap-2",
+                  isPreviewLoading 
+                    ? "bg-secondary text-muted-foreground border border-border" 
+                    : "bg-mint-soft text-mint border border-mint/20 hover:bg-mint-soft/80"
+                ].join(" ")}
+              >
+                {isPreviewLoading ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Synthesizing via Swarm...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" /> Synthesize Preview Output
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Synthesized Preview - 7cols */}
+            <div className="lg:col-span-7 flex flex-col gap-3">
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-semibold text-foreground/80 block">Swarm Cognition Preview</label>
+                {isSimulated && previewOutput && (
+                  <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/15 animate-pulse">
+                    ⚠️ Simulated Fallback
+                  </span>
+                )}
+              </div>
+
+              <div className="relative rounded-xl border border-border bg-secondary/20 p-4 min-h-[185px] flex flex-col justify-between overflow-hidden">
+                {isPreviewLoading && (
+                  <div className="absolute inset-0 bg-card/65 backdrop-blur-xs flex flex-col items-center justify-center gap-2 animate-in fade-in duration-200">
+                    <div className="h-7 w-7 rounded-full border-2 border-mint border-t-transparent animate-spin" />
+                    <span className="text-[10px] font-mono text-muted-foreground animate-pulse">Debating consensus...</span>
+                  </div>
+                )}
+
+                {previewOutput ? (
+                  <div className="text-xs font-mono text-foreground leading-relaxed whitespace-pre-wrap select-text selection:bg-mint/20">
+                    {previewOutput}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-center text-muted-foreground min-h-[150px]">
+                    <Sparkles className="h-7 w-7 text-muted-foreground/30 mb-2" />
+                    <p className="text-xs font-semibold">Your synthesized preview will appear here.</p>
+                    <p className="text-[10px] mt-1 text-muted-foreground/72 max-w-sm">
+                      Select your preferred format (e.g., Checklist or Bullet points) and click "Synthesize Preview" to watch the swarm process it.
+                    </p>
+                  </div>
+                )}
+
+                {isSimulated && previewOutput && (
+                  <div className="mt-4 pt-3 border-t border-border/50 text-[9px] text-amber-500 leading-normal flex items-start gap-1">
+                    <span>⚠️</span>
+                    <span>
+                      Google Gemini API Key is not configured. Real Swarm preview is unavailable. To connect your Gemini key, configure <strong>GOOGLE_API_KEY</strong> in <code>backend/.env</code>.
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

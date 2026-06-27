@@ -26,6 +26,8 @@ from orchestrator.api.schemas import (
     DailyClarityResponse,
     NotesSaveRequest,
     RescheduleRequest,
+    SynthesisPreviewRequest,
+    SynthesisPreviewResponse,
 )
 from orchestrator.config.settings import Settings, get_settings
 from orchestrator.utils.logging_config import get_logger
@@ -954,4 +956,91 @@ async def reschedule_block(payload: RescheduleRequest) -> JSONResponse:
     requests.patch(update_url, json=update_data, headers=headers)
 
     return JSONResponse(content={"status": "success", "message": "Rescheduled successfully"})
+
+
+@router.post(
+    "/synthesis/preview",
+    response_model=SynthesisPreviewResponse,
+    summary="Preview translation synthesis using the LLM swarm backend",
+)
+async def preview_synthesis(
+    payload: SynthesisPreviewRequest,
+    engine=Depends(_get_engine),
+) -> SynthesisPreviewResponse:
+    """Preview translation synthesis format and verbosity level dynamically."""
+    logger.info(
+        "preview_synthesis_requested",
+        format=payload.format,
+        verbosity=payload.verbosity,
+    )
+
+    try:
+        # Check if the API key is the default placeholder or invalid
+        backend = engine._translator._backend
+        if backend._model == "gemini-2.0-flash" and backend._client.api_key == "your-google-api-key-here":
+            raise ValueError("API key is not configured. Please edit backend/.env")
+
+        # Build standard translation instructions prompt mapping structure preferences
+        prompt = f"""
+        Translate the following vague or corporate workplace message:
+        "{payload.message}"
+        
+        Synthesize the output strictly using the following parameters:
+        - Format structure: {payload.format}
+        - Verbosity level: {payload.verbosity}
+        
+        Formatting Guide:
+        - If format is "checklist", output a clean checklist with checkbox items (e.g. - [ ] Step description).
+        - If format is "bullets", output formatted bullet points (e.g. • Item).
+        - If format is "summary", output a structured TL;DR executive summary paragraph followed by 2-3 key takeaways.
+        - If format is "paragraph", output a coherent, polite, and direct paragraph translating the request.
+        
+        Keep the tone direct, kind, explicit, and easy to parse. Avoid fluff, corporate jargon, or preamble/postamble.
+        """
+        
+        system_prompt = "You are the Neurodivergent Communication Specialist (The Twin) agent, translating ambiguous signals into a clear cognitive-friendly preview."
+        
+        # Invoke LLM call directly using the orchestrator's Google/Lyzr backend client
+        synthesized = backend.call_text(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            temperature=0.3
+        )
+        
+        return SynthesisPreviewResponse(synthesized_text=synthesized, simulated=False)
+
+    except Exception as exc:
+        logger.warning("preview_synthesis_failed_falling_back", error=str(exc))
+        
+        # Generate a highly realistic fallback preview based on format & message keywords
+        msg_lower = payload.message.lower()
+        action = "Align on project roadmap details"
+        details = ["Review incoming sync request", "Pivot project priorities", "Establish follow-up buffer slots"]
+        
+        if "deploy" in msg_lower or "staging" in msg_lower:
+            action = "Verify and execute staging deployment"
+            details = ["Check staging build health", "Deploy fixes to staging environment", "Monitor logs for stability"]
+        elif "roadmap" in msg_lower or "sync" in msg_lower or "align" in msg_lower:
+            action = "Align on roadmap priorities"
+            details = ["Schedule roadmap alignment sync", "Review and pivot current priorities", "Confirm schedule with team leads"]
+        elif "design" in msg_lower or "color" in msg_lower or "onboarding" in msg_lower:
+            action = "Refine onboarding design system"
+            details = ["Review onboarding flow color palette", "Adjust sensory density and contrast", "Validate design changes with team"]
+            
+        if payload.format == "checklist":
+            items_str = "\n".join(f"- [ ] {d}" for d in details)
+            synthesized = f"### 🎯 {action}\n\n**Action Steps:**\n{items_str}"
+        elif payload.format == "bullets":
+            items_str = "\n".join(f"• {d}" for d in details)
+            synthesized = f"### 🎯 {action}\n\n**Key Takeaways:**\n{items_str}"
+        elif payload.format == "summary":
+            items_str = "\n".join(f"{i+1}. {d}" for i, d in enumerate(details))
+            synthesized = f"### 📋 Executive Summary\n\n{action} to ensure alignment across teams.\n\n**Key takeaways:**\n{items_str}"
+        else:  # paragraph
+            details_str = ", ".join(details).lower()
+            synthesized = f"Please take action to {action.lower()}. This will require you to: {details_str}."
+
+        return SynthesisPreviewResponse(synthesized_text=synthesized, simulated=True)
+
+
 
