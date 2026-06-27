@@ -9,6 +9,7 @@ import {
   upsertIntegrationStatus,
   disconnectIntegration,
   checkSlackMCPConnected,
+  checkWhatsAppMCPConnected,
   checkCalendarMCPReachable,
   checkGmailMCPReachable,
   connectGoogleCalendar,
@@ -70,6 +71,15 @@ const INTEGRATION_DEFS: IntegrationDef[] = [
     managed: true,
   },
   {
+    id: "whatsapp",
+    name: "WhatsApp Business",
+    icon: "📱",
+    description: "Ingests customer messages and triggers contextual agent responses via WhatsApp Webhooks.",
+    permissions: ["Read Messages", "Send Template Messages"],
+    latency: "18ms",
+    managed: true,
+  },
+  {
     id: "jira",
     name: "Jira Cloud",
     icon: "🎫",
@@ -121,6 +131,18 @@ function IntegrationsPage() {
   const [disconnectText, setDisconnectText] = useState("");
   const [disconnectLoading, setDisconnectLoading] = useState(false);
 
+  // Modal states for manual WhatsApp configuration
+  const [configuringWA, setConfiguringWA] = useState(false);
+  const [waAccessToken, setWaAccessToken] = useState("");
+  const [waPhoneNumberId, setWaPhoneNumberId] = useState("");
+  const [waVerifyToken, setWaVerifyToken] = useState("");
+  const [waSaveLoading, setWaSaveLoading] = useState(false);
+
+  // Disconnect states for WhatsApp
+  const [disconnectingWA, setDisconnectingWA] = useState(false);
+  const [waDisconnectText, setWaDisconnectText] = useState("");
+  const [waDisconnectLoading, setWaDisconnectLoading] = useState(false);
+
   // ── Load statuses ───────────────────────────────────────────────────────────
 
   const refreshStatuses = useCallback(async () => {
@@ -133,11 +155,17 @@ function IntegrationsPage() {
       const calReachable   = await checkCalendarMCPReachable();
       const gmailReachable = await checkGmailMCPReachable();
       const slackConnected = await checkSlackMCPConnected();
+      const whatsappConnected = await checkWhatsAppMCPConnected();
 
       // Merge live MCP status into what we have from DB
       if (slackConnected && !fromDB.get("slack")?.connected) {
         await upsertIntegrationStatus(user.id, "slack", true, ["channels:history", "channels:read", "users:read"]);
         fromDB.set("slack", { service: "slack", connected: true, scopes: ["channels:history", "channels:read", "users:read"], connected_at: new Date().toISOString(), metadata: {} });
+      }
+
+      if (whatsappConnected && !fromDB.get("whatsapp")?.connected) {
+        await upsertIntegrationStatus(user.id, "whatsapp", true, ["messages", "message_templates"]);
+        fromDB.set("whatsapp", { service: "whatsapp", connected: true, scopes: ["messages", "message_templates"], connected_at: new Date().toISOString(), metadata: {} });
       }
 
       // If MCP server is unreachable, mark as disconnected in UI (but don't write to DB)
@@ -206,6 +234,13 @@ function IntegrationsPage() {
       setConfiguringSlack(true);
       return;
     }
+    if (id === "whatsapp") {
+      setWaAccessToken("");
+      setWaPhoneNumberId("");
+      setWaVerifyToken("wp_verify_swarm_token");
+      setConfiguringWA(true);
+      return;
+    }
     setConnecting(id);
     setError(null);
 
@@ -231,6 +266,11 @@ function IntegrationsPage() {
     if (id === "slack") {
       setDisconnectText("");
       setDisconnectingSlack(true);
+      return;
+    }
+    if (id === "whatsapp") {
+      setWaDisconnectText("");
+      setDisconnectingWA(true);
       return;
     }
     setSyncing(id);
@@ -298,6 +338,68 @@ function IntegrationsPage() {
       setError(err.message || "Failed to disconnect Slack.");
     } finally {
       setDisconnectLoading(false);
+    }
+  };
+
+  const handleSaveWhatsAppConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setWaSaveLoading(true);
+    setError(null);
+
+    try {
+      const body = {
+        accessToken: waAccessToken.trim(),
+        phoneNumberId: waPhoneNumberId.trim(),
+        verifyToken: waVerifyToken.trim()
+      };
+
+      const res = await fetch("http://localhost:3003/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to save WhatsApp configuration.");
+      }
+
+      await upsertIntegrationStatus(user.id, "whatsapp", true, ["messages", "message_templates"]);
+      showNotification("WhatsApp configuration saved successfully.");
+      setConfiguringWA(false);
+      await refreshStatuses();
+    } catch (err: any) {
+      setError(err.message || "Failed to update configuration.");
+    } finally {
+      setWaSaveLoading(false);
+    }
+  };
+
+  const handleDisconnectWhatsApp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    if (waDisconnectText.toLowerCase() !== "disconnect whatsapp") return;
+
+    setWaDisconnectLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("http://localhost:3003/disconnect", {
+        method: "POST"
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to disconnect WhatsApp.");
+      }
+
+      await disconnectIntegration(user.id, "whatsapp");
+      showNotification("WhatsApp disconnected successfully.");
+      setDisconnectingWA(false);
+      await refreshStatuses();
+    } catch (err: any) {
+      setError(err.message || "Failed to disconnect WhatsApp.");
+    } finally {
+      setWaDisconnectLoading(false);
     }
   };
 
@@ -431,7 +533,7 @@ function IntegrationsPage() {
               {/* Footer controls */}
               <div className="border-t border-border/50 pt-4 mt-auto flex items-center justify-between text-[11px]">
                 <span className="text-muted-foreground font-mono">
-                  {connected ? "Active" : def.id === "slack" ? "Requires Setup" : def.managed ? "Requires OAuth" : "Coming soon"}
+                  {connected ? "Active" : (def.id === "slack" || def.id === "whatsapp") ? "Requires Setup" : def.managed ? "Requires OAuth" : "Coming soon"}
                 </span>
 
                 <div className="flex gap-2">
@@ -461,8 +563,8 @@ function IntegrationsPage() {
                       {isConnecting
                         ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Connecting…</>
                         : connected
-                          ? (def.id === "slack" ? "Manage" : "Disconnect")
-                          : (def.id === "slack" ? "Configure" : <><ExternalLink className="h-3.5 w-3.5" />Connect</>)
+                          ? (def.id === "slack" || def.id === "whatsapp" ? "Manage" : "Disconnect")
+                          : (def.id === "slack" || def.id === "whatsapp" ? "Configure" : <><ExternalLink className="h-3.5 w-3.5" />Connect</>)
                       }
                     </button>
                   )}
@@ -495,6 +597,9 @@ function IntegrationsPage() {
             )}
             {!statuses.get("slack")?.connected && (
               <p><span className="font-semibold text-foreground">Slack:</span> Click Configure above and enter your Slack User/Bot OAuth Token along with comma-separated channel IDs you want to monitor.</p>
+            )}
+            {!statuses.get("whatsapp")?.connected && (
+              <p><span className="font-semibold text-foreground">WhatsApp Business:</span> Click Configure above and enter your Meta Access Token, Phone Number ID, and a Verify Token. Remember to run a local ngrok tunnel on port 3003 to forward webhooks.</p>
             )}
           </div>
         </div>
@@ -625,6 +730,152 @@ function IntegrationsPage() {
                   className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-rose-500 text-white px-4 py-3 text-xs font-bold hover:bg-rose-600 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {disconnectLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Disconnect Slack"}
+                </button>
+              </footer>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Configure WhatsApp Modal */}
+      {configuringWA && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setConfiguringWA(false)} />
+          
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-xl backdrop-blur-xl animate-in fade-in zoom-in-95">
+            <button
+              onClick={() => setConfiguringWA(false)}
+              className="absolute right-4 top-4 rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <header className="mb-6">
+              <h2 className="text-lg font-extrabold tracking-tight">Configure WhatsApp Integration</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter your Meta Graph API credentials to start receiving message webhooks.
+              </p>
+            </header>
+
+            <form onSubmit={handleSaveWhatsAppConfig} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  Meta System User Access Token
+                </label>
+                <input
+                  type="password"
+                  placeholder="EAAB..."
+                  value={waAccessToken}
+                  onChange={(e) => setWaAccessToken(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-secondary/30 px-4 py-3 text-sm focus:border-foreground focus:outline-hidden transition-all font-mono"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  Phone Number ID
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 10459382103859"
+                  value={waPhoneNumberId}
+                  onChange={(e) => setWaPhoneNumberId(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-secondary/30 px-4 py-3 text-sm focus:border-foreground focus:outline-hidden transition-all font-mono"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  Webhook Verify Token (Hub Verify)
+                </label>
+                <input
+                  type="text"
+                  placeholder="wp_verify_swarm_token"
+                  value={waVerifyToken}
+                  onChange={(e) => setWaVerifyToken(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-secondary/30 px-4 py-3 text-sm focus:border-foreground focus:outline-hidden transition-all font-mono"
+                  required
+                />
+              </div>
+
+              <footer className="flex items-center justify-end gap-3 pt-4 border-t border-border/50">
+                <button
+                  type="button"
+                  onClick={() => setConfiguringWA(false)}
+                  className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={waSaveLoading}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-foreground text-background hover:opacity-90 text-xs font-semibold px-5 py-2.5 transition-all shadow-sm"
+                >
+                  {waSaveLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Save Configuration
+                </button>
+              </footer>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Disconnect WhatsApp Modal */}
+      {disconnectingWA && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setDisconnectingWA(false)} />
+          
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-rose-500/20 bg-card p-6 shadow-xl backdrop-blur-xl animate-in fade-in zoom-in-95">
+            <button
+              onClick={() => setDisconnectingWA(false)}
+              className="absolute right-4 top-4 rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <header className="mb-6 flex flex-col items-center text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-rose-500/10 text-rose-500 mb-4">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <h2 className="text-lg font-extrabold tracking-tight">
+                Disconnect WhatsApp Integration?
+              </h2>
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed max-w-sm">
+                This will severe the active webhook listener connection and stop processing customer message payloads.
+              </p>
+            </header>
+
+            <form onSubmit={handleDisconnectWhatsApp} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block text-center">
+                  Type <strong className="text-foreground select-none pointer-events-none">disconnect whatsapp</strong> to confirm
+                </label>
+                <input
+                  type="text"
+                  placeholder="disconnect whatsapp"
+                  value={waDisconnectText}
+                  onChange={(e) => setWaDisconnectText(e.target.value)}
+                  className="w-full rounded-xl border border-rose-500/30 bg-rose-500/5 px-4 py-3 text-center text-sm font-mono focus:border-rose-500 focus:outline-hidden transition-all text-rose-500 placeholder:text-rose-500/30"
+                  required
+                />
+              </div>
+
+              <footer className="mt-8 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDisconnectingWA(false)}
+                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-xs font-bold text-foreground hover:bg-secondary transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={waDisconnectLoading || waDisconnectText.toLowerCase() !== "disconnect whatsapp"}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-rose-500 text-white px-4 py-3 text-xs font-bold hover:bg-rose-600 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {waDisconnectLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Disconnect WhatsApp"}
                 </button>
               </footer>
             </form>

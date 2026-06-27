@@ -14,7 +14,7 @@
 
 import { supabase } from './supabase';
 
-export type IntegrationService = 'google_calendar' | 'gmail' | 'slack';
+export type IntegrationService = 'google_calendar' | 'gmail' | 'slack' | 'whatsapp';
 
 export interface IntegrationStatus {
   service: IntegrationService;
@@ -80,6 +80,18 @@ export async function disconnectIntegration(userId: string, service: Integration
 const SLACK_MCP_URL = 'http://localhost:3000';
 const GMAIL_MCP_URL = 'http://localhost:3001';
 const CALENDAR_MCP_URL = 'http://localhost:3002';
+const WHATSAPP_MCP_URL = 'http://localhost:3003';
+
+export async function checkWhatsAppMCPConnected(): Promise<boolean> {
+  try {
+    const resp = await fetch(`${WHATSAPP_MCP_URL}/health`);
+    if (!resp.ok) return false;
+    const data = await resp.json();
+    return !!(data.configured);
+  } catch {
+    return false;
+  }
+}
 
 export async function checkSlackMCPConnected(): Promise<boolean> {
   try {

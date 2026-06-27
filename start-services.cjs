@@ -34,7 +34,32 @@ const services = [
     cwd: path.join(__dirname, 'gmail-mcp-server'),
     color: '\x1b[34m', // Blue
   },
+  {
+    name: 'WhatsAppMCP',
+    command: 'node',
+    args: ['index.cjs'],
+    cwd: path.join(__dirname, 'MCP', 'whatsapp'),
+    color: '\x1b[32m', // Green
+  },
 ];
+
+let ngrokAvailable = false;
+try {
+  execSync('which ngrok');
+  ngrokAvailable = true;
+} catch (e) {
+  console.log('\x1b[33m[System] Warning: ngrok is not installed in the path. Exposing webhooks for WhatsApp Business locally will require a manual tunnel pointing to port 3003.\x1b[0m');
+}
+
+if (ngrokAvailable) {
+  services.push({
+    name: 'NgrokTunnel',
+    command: 'ngrok',
+    args: ['http', '3003'],
+    cwd: __dirname,
+    color: '\x1b[35m', // Magenta
+  });
+}
 
 if (!dockerComposeSuccess) {
   console.log('\x1b[33m[System] Docker not active. Appending local Python services (Orchestrator & MemoryService) and CalendarMCP to the runner...\x1b[0m');
