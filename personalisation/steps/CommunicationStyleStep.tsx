@@ -12,7 +12,7 @@ export const CommunicationStyleStep: React.FC<CommunicationStyleStepProps> = ({ 
     {
       id: "checklists",
       title: "Checklists",
-      description: "Numbered action items I can tick off.",
+      description: "Numbered action items to check off.",
       icon: <CheckSquare className="h-5 w-5" />,
     },
     {
@@ -24,13 +24,13 @@ export const CommunicationStyleStep: React.FC<CommunicationStyleStepProps> = ({ 
     {
       id: "short_paragraphs",
       title: "Short Paragraphs",
-      description: "Brief narrative with key details bolded.",
+      description: "Paragraphs with key details bolded.",
       icon: <FileText className="h-5 w-5" />,
     },
     {
       id: "visual_kanban",
       title: "Visual / Kanban",
-      description: "Cards and status columns over text.",
+      description: "Visual columns instead of raw text.",
       icon: <Kanban className="h-5 w-5" />,
     },
   ];

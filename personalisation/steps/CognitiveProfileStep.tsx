@@ -12,25 +12,25 @@ export const CognitiveProfileStep: React.FC<CognitiveProfileStepProps> = ({ valu
     {
       id: "adhd",
       title: "ADHD",
-      description: "I thrive with structure. Context-switching drains me.",
+      description: "Need structure. Task-switching drains me.",
       icon: <Brain className="h-5 w-5" />,
     },
     {
       id: "autism",
       title: "Autism Spectrum",
-      description: "I need explicit, unambiguous communication.",
+      description: "Need explicit, direct communication.",
       icon: <ShieldCheck className="h-5 w-5" />,
     },
     {
       id: "audhd",
       title: "AuDHD",
-      description: "I need both structure and directness.",
+      description: "Need structure and directness.",
       icon: <Cpu className="h-5 w-5" />,
     },
     {
       id: "high_load",
       title: "High Cognitive Load",
-      description: "I'm neurotypical but overwhelmed by noise.",
+      description: "Neurotypical, but overwhelmed by noise.",
       icon: <Zap className="h-5 w-5" />,
     },
     {

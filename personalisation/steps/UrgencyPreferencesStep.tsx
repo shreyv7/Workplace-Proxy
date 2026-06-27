@@ -12,25 +12,25 @@ export const UrgencyPreferencesStep: React.FC<UrgencyPreferencesStepProps> = ({ 
     {
       id: "assume_urgent",
       title: "Assume Urgent",
-      description: "Treat everything as if it's due today.",
+      description: "Treat all tasks as due today.",
       icon: <Flame className="h-5 w-5 text-red-400" />,
     },
     {
       id: "use_context",
       title: "Use Context Clues (Recommended)",
-      description: "Cross-reference sender history and project deadlines.",
+      description: "Assess sender context and deadlines.",
       icon: <BrainCircuit className="h-5 w-5 text-amber-400" />,
     },
     {
       id: "ask_clarification",
       title: "Ask for Clarification",
-      description: "Flag it and prompt me to decide.",
+      description: "Flag items and ask me to decide.",
       icon: <MessageSquareCode className="h-5 w-5 text-cyan-400" />,
     },
     {
       id: "default_low",
       title: "Default to Low Priority",
-      description: "Unless explicitly marked urgent, deprioritise.",
+      description: "Unless marked urgent, deprioritize.",
       icon: <Coffee className="h-5 w-5 text-blue-400" />,
     },
   ];

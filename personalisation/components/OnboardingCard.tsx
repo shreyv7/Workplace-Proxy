@@ -46,7 +46,7 @@ export const OnboardingCard: React.FC<OnboardingCardProps> = ({
         >
           {title}
         </h4>
-        <p className="mt-0.5 text-[11px] text-white/45 leading-normal font-sans group-hover:text-white/55 transition-colors duration-200 line-clamp-1">
+        <p className="mt-0.5 text-[11px] text-white/45 leading-normal font-sans group-hover:text-white/55 transition-colors duration-200 line-clamp-2">
           {description}
         </p>
       </div>
