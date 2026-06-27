@@ -1,0 +1,61 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.18.2
+    container_name: workplace-proxy-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    restart: always
+
+  memory-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: workplace-proxy-memory-service
+    command: python -m uvicorn memory_service.main:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./backend/.env
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_URL=
+    depends_on:
+      - qdrant
+    restart: always
+
+  calendar-mcp:
+    build:
+      context: ./calendar-mcp-server
+      dockerfile: Dockerfile
+    container_name: workplace-proxy-calendar-mcp
+    ports:
+      - "3002:3002"
+    restart: always
+
+  orchestrator:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: workplace-proxy-orchestrator
+    command: python -m uvicorn orchestrator.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_URL=
+      - MEMORY_SERVICE_URL=http://memory-service:8001
+      - MCP_CALENDAR_URL=http://calendar-mcp:3002
+    depends_on:
+      - memory-service
+      - calendar-mcp
+    restart: always
+
+volumes:
+  qdrant_storage:

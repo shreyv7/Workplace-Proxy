@@ -38,11 +38,38 @@ _client: QdrantClient | None = None
 
 
 def get_qdrant_client() -> QdrantClient:
-    """Return the singleton Qdrant client (in-memory for hackathon)."""
+    """Return the singleton Qdrant client."""
     global _client
     if _client is None:
-        _client = QdrantClient(":memory:")
-        print("[qdrant] Initialized in-memory Qdrant client")
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
+
+        import os
+        qdrant_host = os.getenv("QDRANT_HOST")
+        qdrant_port = os.getenv("QDRANT_PORT", "6333")
+        qdrant_url = os.getenv("QDRANT_URL")
+
+        if qdrant_url or qdrant_host:
+            try:
+                if qdrant_url:
+                    client = QdrantClient(url=qdrant_url, timeout=5.0)
+                    client.get_collections()  # Ping/verify connection
+                    _client = client
+                    print(f"[qdrant] Connected to Qdrant server at URL: {qdrant_url}")
+                else:
+                    client = QdrantClient(host=qdrant_host, port=int(qdrant_port), timeout=5.0)
+                    client.get_collections()  # Ping/verify connection
+                    _client = client
+                    print(f"[qdrant] Connected to Qdrant server at host: {qdrant_host}:{qdrant_port}")
+            except Exception as e:
+                print(f"[qdrant] Failed to connect to Qdrant server: {e}. Falling back to in-memory mode.")
+                _client = QdrantClient(":memory:")
+        else:
+            _client = QdrantClient(":memory:")
+            print("[qdrant] Initialized in-memory Qdrant client")
     return _client
 
 

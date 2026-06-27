@@ -1,12 +1,14 @@
-const { spawn, exec } = require('child_process');
+const { spawn, execSync, exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-const pythonPath = process.platform === 'win32'
-  ? path.join(__dirname, 'backend', 'venv', 'Scripts', 'python.exe')
-  : path.join(__dirname, 'backend', 'venv', 'bin', 'python');
-
-const pythonCommand = fs.existsSync(pythonPath) ? pythonPath : 'python';
+// Ensure the dockerized backend stack is running before starting the frontend
+console.log('\x1b[36m[System] Ensuring Dockerized Backend Services are up and running...\x1b[0m');
+try {
+  execSync('docker compose up -d', { stdio: 'inherit', cwd: __dirname });
+} catch (e) {
+  console.log('\x1b[31m[System] Warning: Failed to spin up backend containers. Continuing...\x1b[0m');
+}
 
 const services = [
   {
@@ -15,27 +17,6 @@ const services = [
     args: ['run', 'dev'],
     cwd: __dirname,
     color: '\x1b[36m', // Cyan
-  },
-  {
-    name: 'Orchestrator',
-    command: pythonCommand,
-    args: ['-m', 'uvicorn', 'orchestrator.main:app', '--host', '0.0.0.0', '--port', '8000'],
-    cwd: path.join(__dirname, 'backend'),
-    color: '\x1b[35m', // Magenta
-  },
-  {
-    name: 'MemoryService',
-    command: pythonCommand,
-    args: ['-m', 'uvicorn', 'memory_service.main:app', '--host', '0.0.0.0', '--port', '8001'],
-    cwd: path.join(__dirname, 'backend'),
-    color: '\x1b[32m', // Green
-  },
-  {
-    name: 'CalendarMCP',
-    command: 'npm',
-    args: ['start'],
-    cwd: path.join(__dirname, 'calendar-mcp-server'),
-    color: '\x1b[33m', // Yellow
   }
 ];
 

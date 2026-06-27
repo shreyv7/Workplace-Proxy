@@ -21,7 +21,7 @@ export const OnboardingFlow: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
 
-  const [playVideo, setPlayVideo] = useState(false);
+  const [playVideo, setPlayVideo] = useState(true);
   const [fadeOpacity, setFadeOpacity] = useState(1);
   const [hasStartedFadeOut, setHasStartedFadeOut] = useState(false);
   const videoRef = React.useRef<HTMLVideoElement>(null);
@@ -75,8 +75,8 @@ export const OnboardingFlow: React.FC = () => {
     setIsSubmitting(true);
     try {
       await submitAll(user?.id || "mock-user-1234");
-      // Open the cinematic video player instead of standard redirect
-      setPlayVideo(true);
+      // Already played video at the start, redirect immediately
+      navigate({ to: "/dashboard" });
     } catch (err) {
       console.error("Submission failed", err);
     } finally {
@@ -164,11 +164,6 @@ export const OnboardingFlow: React.FC = () => {
     return null;
   }
 
-  // Step 0: Typewriter animation (Cinematic black viewport)
-  if (currentStep === 0) {
-    return <TypewriterIntro onComplete={() => setCurrentStep(1)} />;
-  }
-
   if (playVideo) {
     return (
       <div className="fixed inset-0 z-50 bg-[#030303] flex items-center justify-center overflow-hidden w-screen h-screen">
@@ -193,7 +188,7 @@ export const OnboardingFlow: React.FC = () => {
             }
           }}
           onEnded={() => {
-            navigate({ to: "/dashboard" });
+            setPlayVideo(false);
           }}
         />
         {/* Black Fader Overlay */}
@@ -204,8 +199,20 @@ export const OnboardingFlow: React.FC = () => {
             transitionDuration: '3000ms'
           }}
         />
+        {/* Skip Intro Button */}
+        <button
+          onClick={() => setPlayVideo(false)}
+          className="absolute bottom-6 right-6 z-50 text-[10px] tracking-widest font-mono font-semibold uppercase text-white/50 hover:text-white border border-white/10 bg-black/40 backdrop-blur-md px-4 py-2.5 rounded-xl transition-all hover:scale-[1.02] cursor-pointer"
+        >
+          Skip Intro
+        </button>
       </div>
     );
+  }
+
+  // Step 0: Typewriter animation (Cinematic black viewport)
+  if (currentStep === 0) {
+    return <TypewriterIntro onComplete={() => setCurrentStep(1)} />;
   }
 
   return (
