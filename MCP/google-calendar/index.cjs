@@ -313,6 +313,16 @@ app.post("/calendar/create-event", async (req, res) => {
   }
 });
 
+// ── Disconnect Endpoint ──
+app.post("/disconnect", (req, res) => {
+  oauth2Client = null;
+  
+  if (fs.existsSync(CONFIG_PATH)) fs.unlinkSync(CONFIG_PATH);
+  if (fs.existsSync(TOKEN_PATH)) fs.unlinkSync(TOKEN_PATH);
+
+  res.json({ success: true, message: "Calendar integration disconnected successfully." });
+});
+
 app.listen(PORT, () => {
   console.log(`Google Calendar MCP Server running on port ${PORT}`);
 });

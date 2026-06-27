@@ -326,6 +326,18 @@ app.get("/oauth2callback", async (req, res) => {
   }
 });
 
+// ── Disconnect Endpoint ──
+app.post("/disconnect", (req, res) => {
+  if (pollingInterval) clearInterval(pollingInterval);
+  pollingInterval = null;
+  oauth2Client = null;
+  
+  if (fs.existsSync(CONFIG_PATH)) fs.unlinkSync(CONFIG_PATH);
+  if (fs.existsSync(TOKEN_PATH)) fs.unlinkSync(TOKEN_PATH);
+
+  res.json({ success: true, message: "Email integration disconnected successfully." });
+});
+
 app.listen(PORT, () => {
   console.log(`Email MCP Server running on port ${PORT}`);
 });

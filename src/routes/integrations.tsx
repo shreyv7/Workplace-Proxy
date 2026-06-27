@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { initialIntegrations, Integration } from "../lib/mock-data";
 import { Plug, CheckCircle2, AlertCircle, RefreshCw, Plus, X, Settings2, Key, HelpCircle, Loader2 } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 export const Route = createFileRoute("/integrations")({
   validateSearch: (search: Record<string, unknown>) => search,
@@ -33,6 +34,10 @@ function IntegrationsSettings() {
   const [slackChannels, setSlackChannels] = useState("");
   const [googleClientId, setGoogleClientId] = useState("");
   const [googleClientSecret, setGoogleClientSecret] = useState("");
+  
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [disconnectText, setDisconnectText] = useState("");
+  const [disconnectLoading, setDisconnectLoading] = useState(false);
   
   const [saveLoading, setSaveLoading] = useState(false);
   const [authUrlLoading, setAuthUrlLoading] = useState(false);
@@ -203,6 +208,40 @@ function IntegrationsSettings() {
     }
   };
 
+  const handleDisconnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!disconnectingId) return;
+    const integration = integrations.find(i => i.id === disconnectingId);
+    if (!integration) return;
+    
+    const requiredText = `disconnect ${integration.name.toLowerCase()}`;
+    if (disconnectText.toLowerCase() !== requiredText) return;
+
+    const mcpUrl = MCP_SERVERS[disconnectingId];
+    if (!mcpUrl) return;
+
+    setDisconnectLoading(true);
+    try {
+      const res = await fetch(`${mcpUrl}/disconnect`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to disconnect.");
+
+      await supabase.from("trace_logs").insert([{
+        t: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+        agent: "System Core",
+        tool: "integration_manager",
+        msg: `User explicitly disconnected ${integration.name} integration.`
+      }]);
+
+      setDisconnectingId(null);
+      setDisconnectText("");
+      checkHealth();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDisconnectLoading(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-[1400px] px-6 pt-8 pb-28 animate-fade-in select-none">
       {/* Header */}
@@ -296,10 +335,10 @@ function IntegrationsSettings() {
                   </button>
                   {isConfigurable && (
                     <button
-                      onClick={() => handleOpenConfigure(it.id)}
-                      className="h-9 px-4 rounded-xl border border-transparent bg-foreground text-background shadow-md hover:shadow-xl hover:-translate-y-0.5 hover:bg-primary font-bold transition-all duration-300"
+                      onClick={() => isConnected ? setDisconnectingId(it.id) : handleOpenConfigure(it.id)}
+                      className={["h-9 px-4 rounded-xl border border-transparent shadow-md hover:shadow-xl hover:-translate-y-0.5 font-bold transition-all duration-300", isConnected ? "bg-secondary text-foreground hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/20" : "bg-foreground text-background hover:bg-primary"].join(" ")}
                     >
-                      Configure
+                      {isConnected ? "Manage" : "Configure"}
                     </button>
                   )}
                 </div>
@@ -456,6 +495,69 @@ function IntegrationsSettings() {
                     Save Configuration
                   </button>
                 </div>
+              </footer>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Disconnect Modal */}
+      {disconnectingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setDisconnectingId(null)} />
+          
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-rose-500/20 bg-card p-6 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95">
+            <button
+              onClick={() => setDisconnectingId(null)}
+              className="absolute right-4 top-4 rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <header className="mb-6 flex flex-col items-center text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-rose-500/10 text-rose-500 mb-4">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <h2 className="text-lg font-extrabold tracking-tight">
+                Disconnect {integrations.find(i => i.id === disconnectingId)?.name}?
+              </h2>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                This will severe the active MCP connection, halt all automated polling for this integration, and delete local authentication keys.
+              </p>
+            </header>
+
+            <form onSubmit={handleDisconnect} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block text-center">
+                  Type <strong className="text-foreground select-none pointer-events-none">disconnect {integrations.find(i => i.id === disconnectingId)?.name.toLowerCase()}</strong> to confirm
+                </label>
+                <input
+                  type="text"
+                  placeholder={`disconnect ${integrations.find(i => i.id === disconnectingId)?.name.toLowerCase()}`}
+                  value={disconnectText}
+                  onChange={(e) => setDisconnectText(e.target.value)}
+                  onPaste={(e) => e.preventDefault()}
+                  autoComplete="off"
+                  className="w-full rounded-xl border border-rose-500/30 bg-rose-500/5 px-4 py-3 text-center text-sm font-mono focus:border-rose-500 focus:outline-hidden transition-all text-rose-500 placeholder:text-rose-500/30"
+                  required
+                />
+              </div>
+
+              <footer className="mt-8 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDisconnectingId(null)}
+                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-xs font-bold text-foreground hover:bg-secondary transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={disconnectLoading || disconnectText.toLowerCase() !== `disconnect ${integrations.find(i => i.id === disconnectingId)?.name.toLowerCase()}`}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-rose-500 text-white px-4 py-3 text-xs font-bold hover:bg-rose-600 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {disconnectLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Disconnect Server"}
+                </button>
               </footer>
             </form>
           </div>

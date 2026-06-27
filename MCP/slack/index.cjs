@@ -281,6 +281,19 @@ app.post("/config", (req, res) => {
   res.json({ success: true, message: "Slack configuration updated successfully." });
 });
 
+// ── Disconnect Endpoint ──
+app.post("/disconnect", (req, res) => {
+  if (pollingInterval) clearInterval(pollingInterval);
+  pollingInterval = null;
+  webClient = null;
+  channels = [];
+  
+  if (fs.existsSync(CONFIG_PATH)) fs.unlinkSync(CONFIG_PATH);
+  if (fs.existsSync(STATE_PATH)) fs.unlinkSync(STATE_PATH);
+
+  res.json({ success: true, message: "Slack integration disconnected successfully." });
+});
+
 app.listen(PORT, () => {
   console.log(`Slack MCP Server running on port ${PORT}`);
 });
