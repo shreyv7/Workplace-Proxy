@@ -1,11 +1,6 @@
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { Sparkles, MessageSquare, Send, Check, AlertCircle, Loader2 } from "lucide-react";
-
-interface ReplyDraft {
-  text: string;
-  tone: "casual" | "professional" | "concise";
-  word_count: number;
-}
+import { API_BASE_URL, generateReplyDrafts, type ReplyDraft } from "../lib/api";
 
 interface ReplyComposerProps {
   messageId: string;
@@ -30,53 +25,49 @@ export function ReplyComposer({
   const [selectedDraftText, setSelectedDraftText] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [feedbackMsg, setFeedbackMsg] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const generateDrafts = async () => {
     setIsGenerating(true);
     setFeedbackMsg(null);
     try {
-      const response = await fetch("http://localhost:8000/api/v1/generate-reply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message_id: messageId,
-          original_content: originalContent,
-          sender_name: senderName,
-          tone: tone,
-          additional_context: additionalContext || undefined,
-        }),
+      const data = await generateReplyDrafts({
+        message_id: messageId,
+        original_content: originalContent,
+        sender_name: senderName,
+        tone: tone,
+        additional_context: additionalContext || undefined,
       });
-
-      if (!response.ok) throw new Error("Failed to generate drafts from swarm");
-      const data = await response.json();
       if (data.success && data.drafts) {
         setDrafts(data.drafts);
         // Default select the one matching preferred tone
         const matching = data.drafts.find((d: ReplyDraft) => d.tone === tone);
         setSelectedDraftText(matching ? matching.text : data.drafts[0].text);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setFeedbackMsg({ type: "error", text: "Swarm engine offline. Using fallback drafts." });
-      
+
       // Local fallback drafts
       const fallback: ReplyDraft[] = [
         {
           text: `Hey ${senderName}, got your message about '${originalContent.slice(0, 30)}...'. Let me check my calendar and get back to you shortly!`,
           tone: "casual",
-          word_count: 21
+          word_count: 21,
         },
         {
           text: `Dear ${senderName},\n\nThank you for reaching out. I have received your message regarding '${originalContent.slice(0, 30)}...' and am currently reviewing it. I will provide a detailed update shortly.\n\nBest regards,`,
           tone: "professional",
-          word_count: 32
+          word_count: 32,
         },
         {
           text: `Got it. Let me look into this and reply soon.`,
           tone: "concise",
-          word_count: 10
-        }
+          word_count: 10,
+        },
       ];
       setDrafts(fallback);
       const matching = fallback.find((d: ReplyDraft) => d.tone === tone);
@@ -96,7 +87,10 @@ export function ReplyComposer({
       // Simulate successful dispatch for other mock channels
       setTimeout(() => {
         setIsSending(false);
-        setFeedbackMsg({ type: "success", text: `Draft simulated as sent to ${senderName} via ${source}` });
+        setFeedbackMsg({
+          type: "success",
+          text: `Draft simulated as sent to ${senderName} via ${source}`,
+        });
         if (onReplySent) onReplySent();
       }, 1000);
       return;
@@ -104,8 +98,8 @@ export function ReplyComposer({
 
     try {
       // Fetch channelId if not explicitly provided (e.g. from config or a default channel)
-      const targetChannel = channelId || "C0BDDSACL3D"; 
-      
+      const targetChannel = channelId || "C0BDDSACL3D";
+
       const response = await fetch("http://localhost:3000/reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -125,9 +119,10 @@ export function ReplyComposer({
       setDrafts([]);
       setAdditionalContext("");
       if (onReplySent) onReplySent();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setFeedbackMsg({ type: "error", text: `Slack Error: ${err.message}` });
+      const errorMessage = err instanceof Error ? err.message : "Unknown Slack send failure";
+      setFeedbackMsg({ type: "error", text: `Slack Error: ${errorMessage}` });
     } finally {
       setIsSending(false);
     }
@@ -154,7 +149,9 @@ export function ReplyComposer({
               </label>
               <select
                 value={tone}
-                onChange={(e: any) => setTone(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                  setTone(e.target.value as "casual" | "professional" | "concise")
+                }
                 className="w-full text-xs font-semibold rounded-xl border border-border bg-card hover:bg-secondary/40 text-foreground px-3.5 py-2.5 transition-all outline-hidden cursor-pointer"
               >
                 <option value="professional">👔 Professional</option>

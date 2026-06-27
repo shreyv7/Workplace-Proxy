@@ -195,26 +195,29 @@ function InboxPage() {
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-8 items-start">
         {/* Left column (Master list) - 40% (4cols) */}
         <div className="lg:col-span-4 flex flex-col gap-4">
-          <div className="flex flex-col gap-3 bg-card border border-border rounded-2xl p-4 shadow-xs">
+          <div className="flex flex-col gap-3 bg-card border border-border rounded-2xl p-4 shadow-sm relative overflow-hidden group">
+            {/* Ambient subtle glow overlay on the search container */}
+            <div className="absolute -inset-px bg-gradient-to-r from-mint/10 to-lavender/10 rounded-2xl opacity-70 blur-xs transition-opacity group-hover:opacity-100 pointer-events-none" />
+            
             {/* Search Input */}
-            <div className="relative">
+            <div className="relative z-10">
               <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search sender, message, actions..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full text-xs rounded-xl border border-border bg-secondary/35 text-foreground pl-9 pr-4 py-3 outline-hidden focus:border-mint transition-colors"
+                className="w-full text-xs rounded-xl border border-border bg-secondary/35 text-foreground pl-9 pr-4 py-3 outline-hidden focus:border-mint focus:ring-1 focus:ring-mint/30 focus:shadow-[0_0_12px_oklch(0.82_0.16_168_/_20%)] transition-all duration-200"
               />
             </div>
 
             {/* Filter pills */}
-            <div className="flex gap-1.5 overflow-x-auto py-1">
+            <div className="flex gap-1.5 overflow-x-auto py-1 relative z-10">
               <button
                 onClick={() => setSourceFilter("all")}
                 className={[
                   "px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer",
-                  sourceFilter === "all" ? "bg-foreground text-background dark:bg-white dark:text-black border-transparent" : "bg-transparent border-border text-muted-foreground hover:bg-secondary/50"
+                  sourceFilter === "all" ? "bg-foreground text-background dark:bg-white dark:text-black border-transparent shadow-[0_0_10px_rgba(255,255,255,0.15)]" : "bg-transparent border-border text-muted-foreground hover:bg-secondary/50"
                 ].join(" ")}
               >
                 All
@@ -222,8 +225,8 @@ function InboxPage() {
               <button
                 onClick={() => setSourceFilter("slack")}
                 className={[
-                  "px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer flex items-center gap-1",
-                  sourceFilter === "slack" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-transparent border-border text-muted-foreground hover:bg-secondary/50"
+                  "px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1",
+                  sourceFilter === "slack" ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/35 shadow-[0_0_10px_oklch(0.78_0.18_145_/_15%)]" : "bg-transparent border-border text-muted-foreground hover:bg-secondary/50"
                 ].join(" ")}
               >
                 Slack
@@ -231,8 +234,8 @@ function InboxPage() {
               <button
                 onClick={() => setSourceFilter("email")}
                 className={[
-                  "px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer flex items-center gap-1",
-                  sourceFilter === "email" ? "bg-indigo-500/10 text-indigo-500 border-indigo-500/20" : "bg-transparent border-border text-muted-foreground hover:bg-secondary/50"
+                  "px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1",
+                  sourceFilter === "email" ? "bg-indigo-500/15 text-indigo-400 border-indigo-500/35 shadow-[0_0_10px_oklch(0.72_0.22_290_/_15%)]" : "bg-transparent border-border text-muted-foreground hover:bg-secondary/50"
                 ].join(" ")}
               >
                 Email
@@ -250,8 +253,10 @@ function InboxPage() {
                     key={m.message_id}
                     onClick={() => setSelectedMessageId(m.message_id)}
                     className={[
-                      "p-4 flex flex-col gap-2.5 cursor-pointer transition-colors relative select-none",
-                      isSelected ? "bg-secondary/40 border-l-2 border-indigo-500" : "hover:bg-secondary/15"
+                      "p-4 flex flex-col gap-2.5 cursor-pointer relative select-none neon-card-hover border-b border-border/40",
+                      isSelected 
+                        ? "bg-secondary/60 border-l-4 border-lavender shadow-[0_0_15px_oklch(0.72_0.22_290_/_15%)]" 
+                        : "hover:bg-secondary/25"
                     ].join(" ")}
                   >
                     {!m.acknowledged && (

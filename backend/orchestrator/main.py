@@ -196,6 +196,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.engine = engine
     app.state.memory = memory
     app.state.mcp = mcp
+    app.state.runtime_backend_label = active_backend_label
+    app.state.adk_interceptor_enabled = bool(adk_interceptor_runner)
 
     logger.info("startup_complete", backend=active_backend_label)
     yield

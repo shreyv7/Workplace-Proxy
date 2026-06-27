@@ -251,6 +251,9 @@ def test_app(mock_memory, mock_mcp, mock_interceptor, mock_contextualizer,
     mock_settings.gemini_model = "gemini-2.0-flash"
     mock_settings.max_debate_rounds = 3
     mock_settings.debate_consensus_threshold = 2
+    mock_settings.mcp_transport = "http"
+    mock_settings.lyzr_enabled = False
+    mock_settings.lyzr_per_agent = False
 
     engine = DebateEngine(
         interceptor=mock_interceptor,
@@ -263,5 +266,7 @@ def test_app(mock_memory, mock_mcp, mock_interceptor, mock_contextualizer,
     app.state.engine = engine
     app.state.memory = mock_memory
     app.state.mcp = mock_mcp
+    app.state.runtime_backend_label = "MockBackend"
+    app.state.adk_interceptor_enabled = False
 
     return TestClient(app, raise_server_exceptions=True)

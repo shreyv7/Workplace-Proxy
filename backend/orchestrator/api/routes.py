@@ -5,11 +5,10 @@ and MemoryInterface. No business logic lives in this file.
 """
 from __future__ import annotations
 
-import time
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
+from orchestrator.agents.base import AgentIdentity
 from orchestrator.api.schemas import (
     FeedbackRequest,
     FeedbackResponse,
@@ -50,6 +49,84 @@ def _get_memory(request: Request):
             detail="Memory interface not initialised.",
         )
     return memory
+
+
+def _build_runtime_snapshot(request: Request) -> dict[str, object]:
+    """Summarise the active swarm runtime for internal diagnostics screens."""
+    engine = _get_engine(request)
+    settings = engine._settings
+    adk_interceptor_enabled = bool(
+        getattr(request.app.state, "adk_interceptor_enabled", False)
+    )
+    backend_mode = getattr(
+        request.app.state,
+        "runtime_backend_label",
+        type(engine._translator._backend).__name__,
+    )
+
+    agent_definitions = [
+        ("interceptor", "Interceptor Agent", engine._interceptor),
+        ("contextualizer", "Context Agent", engine._contextualizer),
+        ("scheduler", "Scheduler Agent", engine._scheduler),
+        ("translator", "Translator Agent", engine._translator),
+    ]
+
+    agents: list[dict[str, object]] = []
+    for agent_key, display_name, agent in agent_definitions:
+        identity = agent.get_identity()
+        if not isinstance(identity, AgentIdentity):
+            identity = None
+        llm_backend = type(agent._backend).__name__
+
+        primary_runtime = llm_backend
+        if agent_key == "interceptor" and adk_interceptor_enabled:
+            primary_runtime = "Google ADK Interceptor"
+
+        dependency = "Gemini / Lyzr runtime"
+        if agent_key == "contextualizer":
+            dependency = "Role 3 memory service (Qdrant context)"
+        elif agent_key == "scheduler":
+            dependency = "Role 1 Calendar MCP"
+
+        fallback_chain: list[str] = []
+        if agent_key == "interceptor" and adk_interceptor_enabled:
+            fallback_chain.append(llm_backend)
+        if agent_key == "contextualizer":
+            fallback_chain.append("Default memory context when Role 3 is unavailable")
+        if agent_key == "scheduler":
+            fallback_chain.append("Deterministic calendar slot when MCP is unavailable")
+        if agent_key == "translator":
+            fallback_chain.append("Emergency translation if the debate pipeline errors")
+
+        agents.append(
+            {
+                "id": agent_key,
+                "display_name": display_name,
+                "name": identity.name if identity else agent.name,
+                "role": identity.role if identity else agent.name,
+                "primary_runtime": primary_runtime,
+                "llm_backend": llm_backend,
+                "dependency": dependency,
+                "fallback_chain": fallback_chain,
+                "confidence_baseline": (
+                    identity.confidence_baseline if identity else None
+                ),
+                "expertise": identity.expertise if identity else [],
+                "limitations": identity.limitations if identity else [],
+            }
+        )
+
+    return {
+        "backend_mode": backend_mode,
+        "lyzr_enabled": bool(getattr(settings, "lyzr_enabled", False)),
+        "lyzr_per_agent": bool(getattr(settings, "lyzr_per_agent", False)),
+        "adk_interceptor_enabled": adk_interceptor_enabled,
+        "mcp_transport": getattr(settings, "mcp_transport", "http"),
+        "consensus_threshold": getattr(settings, "debate_consensus_threshold", 2),
+        "max_debate_rounds": getattr(settings, "max_debate_rounds", 3),
+        "agents": agents,
+        "last_transcript_available": engine.last_transcript is not None,
+    }
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -252,6 +329,19 @@ async def get_debug_transcript(request: Request) -> JSONResponse:
 
 
 @router.get(
+    "/debug/runtime",
+    summary="Internal runtime snapshot",
+    description=(
+        "Returns the currently active agent roster, backend mode, ADK/Lyzr posture, "
+        "and fallback paths. For internal diagnostics and demo UI only."
+    ),
+)
+async def get_runtime_snapshot(request: Request) -> JSONResponse:
+    """Debug endpoint — returns the current swarm runtime configuration."""
+    return JSONResponse(content=_build_runtime_snapshot(request))
+
+
+@router.get(
     "/debug/metrics",
     summary="Internal metrics snapshot",
     description=(
@@ -264,6 +354,47 @@ async def get_metrics(request: Request) -> JSONResponse:
     """Debug endpoint — returns the in-process metrics store snapshot."""
     from orchestrator.metrics.store import get_metrics as _get_metrics
     return JSONResponse(content=_get_metrics().to_dict())
+
+
+@router.post(
+    "/debug/settings",
+    summary="Update internal debate settings dynamically",
+)
+async def update_settings(
+    payload: dict,
+    request: Request,
+) -> JSONResponse:
+    """Debug endpoint — updates the current debate threshold and max rounds."""
+    engine = _get_engine(request)
+    settings = engine._settings
+    
+    if "debate_consensus_threshold" in payload:
+        val = int(payload["debate_consensus_threshold"])
+        settings.debate_consensus_threshold = val
+        engine._consensus_threshold = val
+        if hasattr(engine, "_consensus_engine") and engine._consensus_engine:
+            engine._consensus_engine._threshold = val
+        
+    if "max_debate_rounds" in payload:
+        val = int(payload["max_debate_rounds"])
+        settings.max_debate_rounds = val
+        engine._max_rounds = val
+        if hasattr(engine, "_consensus_engine") and engine._consensus_engine:
+            engine._consensus_engine._max_rounds = val
+
+    logger.info(
+        "debate_settings_updated",
+        debate_consensus_threshold=settings.debate_consensus_threshold,
+        max_debate_rounds=settings.max_debate_rounds,
+    )
+
+    return JSONResponse(
+        content={
+            "status": "success",
+            "debate_consensus_threshold": settings.debate_consensus_threshold,
+            "max_debate_rounds": settings.max_debate_rounds,
+        }
+    )
 
 
 @router.get(

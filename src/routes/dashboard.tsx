@@ -1,22 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { ClarityInbox } from "../components/clarity-inbox";
-import { CalendarTimeline } from "../components/calendar-timeline";
-import { TraceLog } from "../components/trace-log";
-import { CognitiveLoadWidget } from "../components/cognitive-load-widget";
-import { ProcessingPipeline } from "../components/processing-pipeline";
-import { TranslatedTaskCard } from "../components/translated-task-card";
-import { AgentDebateModal } from "../components/agent-debate-modal";
-import { supabase } from "../lib/supabase";
-import { sendRawMessageToSwarm } from "../lib/api-bridge";
-import { useAuth } from "../../personalisation/auth/AuthProvider";
-import {
-  initialMessages,
-  initialCalendar,
-  type ClarityMessage,
-  type CalendarBlock,
-} from "../lib/mock-data";
-import { MessageSquare, Mail, Layers, Sparkles, ArrowRight, HelpCircle, X, Calendar } from "lucide-react";
+import { CalendarDays, Clock3, NotebookText, Sparkles, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -25,650 +9,212 @@ export const Route = createFileRoute("/dashboard")({
       {
         name: "description",
         content:
-          "Today's translated workspace signals and a cognitive-load calendar of your scheduled focus and tasks.",
+          "A simplified reset of the Daily Clarity experience while the planner-first redesign is being defined.",
       },
     ],
   }),
-  component: DailyClarity,
+  component: DailyClarityReset,
 });
 
-function DailyClarity() {
-  const { user } = useAuth();
-  const [messages, setMessages] = useState<ClarityMessage[]>([]);
-  const [calendar, setCalendar] = useState<CalendarBlock[]>([]);
-  const [selectedMessageId, setSelectedMessageId] = useState<string>("");
-  const [selectedDebateId, setSelectedDebateId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"triage" | "calendar">("triage");
-  const [isSeeding, setIsSeeding] = useState(false);
-  const [showBlueprint, setShowBlueprint] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("show_blueprint") !== "false";
-    }
-    return true;
-  });
+const sections = [
+  {
+    title: "Morning brief",
+    description: "A quick read on today's priorities, energy, and what needs attention first.",
+    icon: Sparkles,
+  },
+  {
+    title: "Meeting-aware calendar",
+    description: "A clear schedule view that explains meetings, buffers, conflicts, and suggested focus windows.",
+    icon: CalendarDays,
+  },
+  {
+    title: "Priority flow",
+    description: "Only the top tasks for today, not every system detail or backend trace.",
+    icon: Clock3,
+  },
+  {
+    title: "Notes and parking lot",
+    description: "A simple space for thoughts, follow-ups, and things to revisit later.",
+    icon: NotebookText,
+  },
+];
 
-  // 1. Fetch & Seed Data from Supabase
-  const fetchData = async () => {
-    try {
-      // Fetch messages
-      let { data: dbMessages } = await supabase
-        .from("messages")
-        .select("*")
-        .order("created_at", { ascending: true });
-
-      // Fetch calendar blocks
-      let { data: dbCalendar } = await supabase
-        .from("calendar_blocks")
-        .select("*")
-        .order("created_at", { ascending: true });
-
-      // Auto-seed if Supabase database is completely empty and there is mock data to seed
-      if ((!dbMessages || dbMessages.length === 0) && !isSeeding && (initialMessages.length > 0 || initialCalendar.length > 0)) {
-        setIsSeeding(true);
-        
-        if (initialMessages.length > 0) {
-          // Insert seed messages
-          const formattedSeedMsgs = initialMessages.map(m => ({
-            message_id: m.message_id,
-            sender_name: m.sender_name,
-            sender_role: m.sender_role,
-            timestamp: m.timestamp,
-            original_text: m.original_text,
-            source: m.source,
-            importance: m.importance,
-            ambiguity: m.ambiguity,
-            agent_assigned: m.agent_assigned,
-            translation_status: m.translation_status,
-            action: m.translated_bullet_points.action,
-            complexity: m.translated_bullet_points.complexity,
-            expected_duration: m.translated_bullet_points.expected_duration,
-            steps: m.translated_bullet_points.steps,
-            suggested_start_time: m.suggested_start_time,
-            suggested_end_time: m.suggested_end_time,
-            fidelity_rating: m.fidelity_rating,
-            acknowledged: m.acknowledged,
-            reasoning: m.reasoning,
-            debate_id: m.debate_id
-          }));
-          await supabase.from("messages").insert(formattedSeedMsgs);
-        }
-
-        const blocksToInsert = [];
-        if (initialCalendar.length > 0) {
-          const formattedSeedCal = initialCalendar.map(c => ({
-            id: c.id,
-            start: c.start,
-            "end": c.end,
-            title: c.title,
-            type: c.type,
-            source_message_id: c.source_message_id || null,
-            acknowledged: c.acknowledged || false,
-            agent_generated: c.agent_generated || false,
-            confidence: c.confidence || null,
-            reason: c.reason || null
-          }));
-          blocksToInsert.push(...formattedSeedCal);
-        }
-
-        if (initialMessages.length > 0) {
-          const messageTasks = initialMessages.map(m => ({
-            id: `task_${m.message_id}`,
-            start: m.suggested_start_time,
-            "end": m.suggested_end_time,
-            title: m.translated_bullet_points.action,
-            type: "task",
-            source_message_id: m.message_id,
-            acknowledged: m.acknowledged,
-            agent_generated: true,
-            confidence: 94,
-            reason: m.reasoning
-          }));
-          blocksToInsert.push(...messageTasks);
-        }
-
-        if (blocksToInsert.length > 0) {
-          await supabase.from("calendar_blocks").insert(blocksToInsert);
-        }
-
-        // Refetch after inserting
-        const { data: newMsgs } = await supabase.from("messages").select("*").order("created_at", { ascending: true });
-        const { data: newCal } = await supabase.from("calendar_blocks").select("*").order("created_at", { ascending: true });
-        
-        if (newMsgs) dbMessages = newMsgs;
-        if (newCal) dbCalendar = newCal;
-        setIsSeeding(false);
+const loadingAnimationSrcDoc = `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: transparent;
       }
-
-      if (dbMessages) {
-        // Map database schema back to React Component schema
-        const mappedMsgs: ClarityMessage[] = dbMessages.map((m: any) => ({
-          message_id: m.message_id,
-          sender_name: m.sender_name,
-          sender_role: m.sender_role,
-          timestamp: m.timestamp,
-          original_text: m.original_text,
-          source: m.source,
-          importance: m.importance,
-          ambiguity: m.ambiguity,
-          agent_assigned: m.agent_assigned,
-          translation_status: m.translation_status,
-          translated_bullet_points: {
-            action: m.action,
-            complexity: m.complexity,
-            expected_duration: m.expected_duration,
-            steps: m.steps || [],
-          },
-          suggested_start_time: m.suggested_start_time,
-          suggested_end_time: m.suggested_end_time,
-          fidelity_rating: m.fidelity_rating,
-          acknowledged: m.acknowledged,
-          reasoning: m.reasoning,
-          debate_id: m.debate_id
-        }));
-
-        setMessages(mappedMsgs);
-        if (mappedMsgs.length > 0 && !selectedMessageId) {
-          setSelectedMessageId(mappedMsgs[mappedMsgs.length - 1].message_id);
-        }
+      canvas {
+        width: 100% !important;
+        height: 100% !important;
+        display: block;
+        background: transparent;
       }
+    </style>
+    <script src="https://unpkg.com/@lottiefiles/dotlottie-web/dist/dotlottie-web.js"></script>
+  </head>
+  <body>
+    <canvas id="loading-animation"></canvas>
+    <script>
+      new DotLottie({
+        canvas: document.getElementById("loading-animation"),
+        src: "https://lottie.host/embed/af715c09-b2c4-4c13-a08d-782831435e21/AdNwcE8RRC.lottie",
+        autoplay: true,
+        loop: true,
+        backgroundColor: "transparent",
+        layout: { fit: "contain", align: [0.5, 0.5] }
+      });
+    </script>
+  </body>
+</html>
+`;
 
-      if (dbCalendar) {
-        setCalendar(dbCalendar.map((c: any) => ({
-          id: c.id,
-          start: c.start,
-          end: c.end,
-          title: c.title,
-          type: c.type,
-          source_message_id: c.source_message_id,
-          acknowledged: c.acknowledged,
-          agent_generated: c.agent_generated,
-          confidence: c.confidence,
-          reason: c.reason
-        })));
-      }
-    } catch (e) {
-      console.error("Database connection issue: ", e);
-    }
-  };
+function DailyClarityReset() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingStep, setLoadingStep] = useState(0);
 
-  // 2. Setup Realtime Sync Subscriptions
+  const loadingSteps = [
+    "Initializing cognitive focus shell...",
+    "Aligning multi-agent debate consensus...",
+    "Verifying Google Calendar MCP bindings...",
+    "Pre-calculating deep work focus windows...",
+  ];
+
   useEffect(() => {
-    fetchData();
+    const stepInterval = setInterval(() => {
+      setLoadingStep((prev) => (prev + 1) % loadingSteps.length);
+    }, 2500);
 
-    const messagesChannel = supabase
-      .channel("messages_realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => {
-        fetchData();
-      })
-      .subscribe();
-
-    const calendarChannel = supabase
-      .channel("calendar_realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_blocks" }, () => {
-        fetchData();
-      })
-      .subscribe();
+    const loadTimer = setTimeout(() => {
+      setIsLoading(false);
+    }, 10000);
 
     return () => {
-      supabase.removeChannel(messagesChannel);
-      supabase.removeChannel(calendarChannel);
+      clearInterval(stepInterval);
+      clearTimeout(loadTimer);
     };
-  }, [selectedMessageId]);
-
-  const selectedMessage = useMemo(() => {
-    return messages.find((m) => m.message_id === selectedMessageId);
-  }, [messages, selectedMessageId]);
-
-  // 3. Database operations
-  // 3. Database operations
-  const syncToGoogleCalendar = async (title: string, startStr: string, endStr: string, reason: string) => {
-    try {
-      const todayStr = new Date().toISOString().split("T")[0];
-      const localStart = new Date(`${todayStr}T${startStr}:00`);
-      const localEnd = new Date(`${todayStr}T${endStr}:00`);
-      
-      await fetch("http://localhost:3002/calendar/create-event", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          start: localStart.toISOString(),
-          end: localEnd.toISOString(),
-          description: reason
-        })
-      });
-    } catch (e) {
-      console.warn("Google Calendar sync offline or unconfigured:", e);
-    }
-  };
-
-  const handleAcknowledge = async (messageId: string) => {
-    // Optimistically update the UI state immediately
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.message_id === messageId ? { ...m, acknowledged: true } : m
-      )
-    );
-
-    const exists = calendar.some((c) => c.source_message_id === messageId);
-    if (exists) {
-      setCalendar((prev) =>
-        prev.map((c) =>
-          c.source_message_id === messageId ? { ...c, acknowledged: true } : c
-        )
-      );
-    } else {
-      const msg = messages.find((m) => m.message_id === messageId);
-      if (msg) {
-        setCalendar((prev) => [
-          ...prev,
-          {
-            id: `task_${messageId}`,
-            start: msg.suggested_start_time,
-            end: msg.suggested_end_time,
-            title: msg.translated_bullet_points.action,
-            type: "task",
-            source_message_id: messageId,
-            acknowledged: true,
-            agent_generated: true,
-            confidence: 94,
-            reason: msg.reasoning
-          }
-        ]);
-      }
-    }
-
-    try {
-      // 1. Update Supabase messages table
-      await supabase
-        .from("messages")
-        .update({ acknowledged: true })
-        .eq("message_id", messageId);
-
-      // 2. Update Supabase calendar table or insert if missing
-      const blockExists = calendar.some((b) => b.source_message_id === messageId);
-      if (blockExists) {
-        await supabase
-          .from("calendar_blocks")
-          .update({ acknowledged: true })
-          .eq("source_message_id", messageId);
-
-        // 3. Sync to real Google Calendar
-        const block = calendar.find((b) => b.source_message_id === messageId);
-        if (block) {
-          await syncToGoogleCalendar(block.title, block.start, block.end, block.reason || "");
-        }
-      } else {
-        const msg = messages.find((m) => m.message_id === messageId);
-        if (msg) {
-          const newBlock = {
-            id: `task_${messageId}`,
-            start: msg.suggested_start_time,
-            end: msg.suggested_end_time,
-            title: msg.translated_bullet_points.action,
-            type: "task",
-            source_message_id: messageId,
-            acknowledged: true,
-            agent_generated: true,
-            confidence: 94,
-            reason: msg.reasoning
-          };
-          await supabase.from("calendar_blocks").insert(newBlock);
-          await syncToGoogleCalendar(newBlock.title, newBlock.start, newBlock.end, newBlock.reason);
-        }
-      }
-    } catch (e) {
-      console.error("Database connection issue: ", e);
-      // Revert/refresh on error
-      fetchData();
-    }
-  };
-
-  const handleCalendarAck = async (blockId: string) => {
-    // Optimistically update the UI state immediately
-    setCalendar((prev) =>
-      prev.map((c) => (c.id === blockId ? { ...c, acknowledged: true } : c))
-    );
-    const targetBlock = calendar.find((b) => b.id === blockId);
-    if (targetBlock && targetBlock.source_message_id) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.message_id === targetBlock.source_message_id
-            ? { ...m, acknowledged: true }
-            : m
-        )
-      );
-    }
-
-    try {
-      await supabase
-        .from("calendar_blocks")
-        .update({ acknowledged: true })
-        .eq("id", blockId);
-
-      // Check if block was created from a signal, and update that signal too
-      if (targetBlock) {
-        await syncToGoogleCalendar(targetBlock.title, targetBlock.start, targetBlock.end, targetBlock.reason || "");
-        
-        if (targetBlock.source_message_id) {
-          await supabase
-            .from("messages")
-            .update({ acknowledged: true })
-            .eq("message_id", targetBlock.source_message_id);
-        }
-      }
-    } catch (e) {
-      console.error("Database connection issue: ", e);
-      // Revert/refresh on error
-      fetchData();
-    }
-  };
-
-  // 4. Mock Inbound Trigger Simulations
-  const triggerInboundSimulation = async (type: "slack" | "email" | "jira") => {
-    const userId = user?.id || "usr_clarity_101";
-    if (type === "slack") {
-      await sendRawMessageToSwarm({
-        source: "slack",
-        sender_name: "Boss Tom",
-        sender_role: "Engineering Director",
-        content: "Hey, can you double check the staging configurations whenever you have a minute? Also check the deployment checklist.",
-      }, userId);
-    } else if (type === "email") {
-      await sendRawMessageToSwarm({
-        source: "email",
-        sender_name: "External Client",
-        sender_role: "Account Lead",
-        content: "Hi, following up on our roadmap alignment call. Are you available sometime tomorrow around 3 PM?",
-      }, userId);
-    } else {
-      await sendRawMessageToSwarm({
-        source: "jira",
-        sender_name: "Sprint Triage",
-        sender_role: "Product Manager",
-        content: "Critical: Revisit the onboarding flow feedback from QA. Need to lower gradient saturation before staging push.",
-      }, userId);
-    }
-  };
+  }, []);
 
   return (
-    <>
-      <div className="mx-auto max-w-[1600px] px-6 pt-8 pb-28 animate-fade-in select-none">
-        {/* Welcome Section */}
-        <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <div className="text-[10px] font-mono tracking-widest text-muted-foreground uppercase">
-              Workspace Overview
+    <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-6xl flex-col px-6 py-10 relative">
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center p-6 border border-border/80 bg-card/65 backdrop-blur-md rounded-[2rem] shadow-xl relative overflow-hidden min-h-[500px] animate-fade-in select-none">
+          {/* Animated Neon Ambient Glows */}
+          <div className="absolute -left-1/4 -top-1/4 w-96 h-96 rounded-full bg-mint/10 blur-[120px] animate-pulse" />
+          <div className="absolute -right-1/4 -bottom-1/4 w-96 h-96 rounded-full bg-lavender/10 blur-[120px] animate-pulse" style={{ animationDelay: '1.5s' }} />
+
+          <div className="relative z-10 flex w-full max-w-4xl flex-col items-center text-center">
+            {/* Open animation stage */}
+            <div className="relative flex w-full min-h-[420px] items-center justify-center rounded-[2rem] border border-border/50 bg-gradient-to-br from-background/75 via-card/75 to-secondary/20 px-6 py-8 shadow-[0_0_40px_rgba(var(--color-border),0.16)] overflow-visible">
+              <iframe
+                srcDoc={loadingAnimationSrcDoc}
+                style={{
+                  width: "min(78vw, 640px)",
+                  height: "min(78vw, 640px)",
+                  border: "none",
+                  background: "transparent",
+                }}
+                title="AI Robot Lottie Animation"
+                className="pointer-events-none"
+              />
             </div>
-            <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
-              Good morning, User
-            </h1>
-            <p className="mt-1.5 text-sm text-muted-foreground flex flex-wrap items-center gap-1.5">
-              <span>Your agent swarms are active. They triaged {messages.length} inbound signals and protected your deep focus windows today.</span>
-              {!showBlueprint && (
-                <button
-                  onClick={() => {
-                    setShowBlueprint(true);
-                    localStorage.setItem("show_blueprint", "true");
-                  }}
-                  className="text-xs font-semibold text-mint hover:underline inline-flex items-center gap-1 cursor-pointer"
-                >
-                  <HelpCircle className="h-3.5 w-3.5" /> View System Blueprint
-                </button>
-              )}
+
+            {/* Connection Telemetry Badge */}
+            <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-mint/20 bg-mint/5 px-3.5 py-1 text-[10px] font-mono uppercase tracking-wider text-mint shadow-[0_0_10px_oklch(0.82_0.16_168_/_15%)]">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Calibrating daily context</span>
+            </div>
+
+            {/* Loading Steps text */}
+            <p className="mt-4 text-xs font-bold font-mono text-muted-foreground min-h-[1.5rem] tracking-wide animate-pulse">
+              [ {loadingSteps[loadingStep]} ]
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs text-muted-foreground shadow-2xs font-medium">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-mint opacity-70" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-mint" />
+        </div>
+      ) : (
+        <section className="overflow-hidden rounded-[2rem] border border-border/70 bg-card/90 shadow-sm animate-fade-in">
+          <div className="border-b border-border/70 px-6 py-4 sm:px-8">
+            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-mono uppercase tracking-[0.3em] text-emerald-700 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400">
+              Daily Clarity Reset
             </span>
-            <span>Swarm Load Optimal · June 25, 2026</span>
+            <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-foreground sm:text-5xl">
+              A calmer planner-first page starts here.
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+              The previous dashboard has been cleared so this route can be rebuilt around one job:
+              helping the user understand their day quickly, especially meetings, schedule pressure,
+              and focus time.
+            </p>
           </div>
-        </header>
 
-        {/* Onboarding / System Explanation Blueprint */}
-        {showBlueprint && (
-          <div className="mb-8 relative overflow-hidden rounded-3xl border border-mint/20 bg-linear-to-r from-mint-soft/10 via-lavender-soft/5 to-transparent p-6 shadow-xs backdrop-blur-xs animate-fade-in">
-            {/* Close button */}
-            <button 
-              onClick={() => {
-                setShowBlueprint(false);
-                localStorage.setItem("show_blueprint", "false");
-              }}
-              className="absolute top-4 right-4 h-8 w-8 flex items-center justify-center rounded-full hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-all duration-200 cursor-pointer"
-              aria-label="Hide blueprint"
-            >
-              <X className="h-4 w-4" />
-            </button>
+          <div className="grid gap-6 px-6 py-6 sm:px-8 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="space-y-3">
+              {sections.map(({ title, description, icon: Icon }) => (
+                <div
+                  key={title}
+                  className="flex items-start gap-4 rounded-2xl border border-border/70 bg-background/80 p-4 transition-all duration-200 hover:border-border hover:shadow-xs"
+                >
+                  <div className="rounded-2xl bg-secondary p-2.5 text-foreground">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-foreground sm:text-base">{title}</h2>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-            <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center">
-              <div className="max-w-md shrink-0">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-mint-soft/30 text-mint px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider font-mono">
-                  System Blueprint
-                </span>
-                <h2 className="mt-2 text-lg font-extrabold tracking-tight text-foreground">
-                  How Workplace Proxy Works
-                </h2>
-                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                  The cognitive workspace intercepts messy, vague inbound communications and leverages a multi-agent swarm to translate them into clear, structured calendar items and actionable lists.
-                </p>
+            <div className="rounded-[1.75rem] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(247,249,252,0.92))] dark:bg-[linear-gradient(180deg,rgba(20,20,25,0.92),rgba(15,15,20,0.92))] p-5">
+              <div className="rounded-[1.5rem] border border-dashed border-border/80 bg-background/80 p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-muted-foreground">
+                      Planner Direction
+                    </p>
+                    <h2 className="mt-2 text-xl font-semibold text-foreground">Meeting + schedule clarity</h2>
+                  </div>
+                  <div className="rounded-full bg-amber-100 dark:bg-amber-950/30 px-3 py-1 text-xs font-medium text-amber-800 dark:text-amber-400">
+                    Minimal UI
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl bg-rose-50 dark:bg-rose-950/15 p-4 border border-rose-100/10">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-700 dark:text-rose-400">Day schedule</p>
+                    <p className="mt-2 text-sm text-foreground">Time-based calendar with meeting insights and buffers.</p>
+                  </div>
+                  <div className="rounded-2xl bg-lime-50 dark:bg-lime-950/15 p-4 border border-lime-100/10">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-lime-700 dark:text-lime-400">Activities</p>
+                    <p className="mt-2 text-sm text-foreground">Prep notes, top tasks, and recommended next action.</p>
+                  </div>
+                  <div className="rounded-2xl bg-sky-50 dark:bg-sky-950/15 p-4 border border-sky-100/10">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700 dark:text-sky-400">Focus windows</p>
+                    <p className="mt-2 text-sm text-foreground">Protected blocks created after checking the real calendar.</p>
+                  </div>
+                  <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/15 p-4 border border-amber-100/10">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-400">Notes</p>
+                    <p className="mt-2 text-sm text-foreground">A lightweight note area inspired by a paper daily planner.</p>
+                  </div>
+                </div>
               </div>
 
-              {/* Blueprint Visual Flow */}
-              <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-5 items-center gap-3">
-                <div className="md:col-span-1.5 rounded-2xl border border-border bg-card p-4.5 shadow-2xs flex flex-col gap-1.5">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase font-mono">
-                    <MessageSquare className="h-3.5 w-3.5 text-emerald-500" /> 1. Chaotic Input
-                  </div>
-                  <p className="text-xs text-foreground/80 italic font-serif leading-tight">
-                    "Hey, can you double check the staging configurations whenever you have a minute?"
-                  </p>
-                </div>
-
-                <div className="md:col-span-0.5 flex justify-center text-muted-foreground/60">
-                  <ArrowRight className="h-4 w-4 rotate-90 md:rotate-0" />
-                </div>
-
-                <div className="md:col-span-1.5 rounded-2xl border border-mint/20 bg-mint-soft/10 p-4.5 shadow-2xs flex flex-col gap-1.5">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-mint uppercase font-mono">
-                    <Sparkles className="h-3.5 w-3.5 animate-pulse-soft" /> 2. Swarm Debate
-                  </div>
-                  <p className="text-xs text-foreground/90 font-medium leading-tight">
-                    Agents resolve ambiguity, estimate complexity, and build a granular checklist.
-                  </p>
-                </div>
-
-                <div className="md:col-span-0.5 flex justify-center text-muted-foreground/60">
-                  <ArrowRight className="h-4 w-4 rotate-90 md:rotate-0" />
-                </div>
-
-                <div className="md:col-span-1 rounded-2xl border border-border bg-card p-4.5 shadow-2xs flex flex-col gap-1.5">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 uppercase font-mono">
-                    <Calendar className="h-3.5 w-3.5 text-indigo-500" /> 3. Smart Block
-                  </div>
-                  <p className="text-xs text-foreground/90 font-medium leading-tight">
-                    An optimal time block is reserved, protecting focus time.
-                  </p>
-                </div>
+              <div className="mt-4 rounded-2xl border border-border/70 bg-secondary/40 p-4 text-sm text-muted-foreground">
+                Detailed product spec: <span className="font-medium text-foreground">docs/daily_clarity.md</span>
               </div>
             </div>
           </div>
-        )}
-
-
-        {/* Tab selection */}
-        <div className="flex border-b border-border/80 mb-8 gap-6">
-          <button
-            onClick={() => setActiveTab("triage")}
-            className={[
-              "pb-3 text-xs uppercase font-mono tracking-widest transition-all border-b-2 relative -bottom-[2px] cursor-pointer",
-              activeTab === "triage"
-                ? "border-mint text-foreground font-bold"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            ].join(" ")}
-          >
-            Triage Inbox
-          </button>
-          <button
-            onClick={() => setActiveTab("calendar")}
-            className={[
-              "pb-3 text-xs uppercase font-mono tracking-widest transition-all border-b-2 relative -bottom-[2px] cursor-pointer",
-              activeTab === "calendar"
-                ? "border-mint text-foreground font-bold"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            ].join(" ")}
-          >
-            Focus Calendar
-          </button>
-        </div>
-
-        {activeTab === "triage" ? (
-          /* Triage Inbox View */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* COLUMN 1: Original Inbound Signals (expanded for spacing) */}
-            <section className="lg:col-span-5 xl:col-span-4 space-y-4 animate-scale-in" aria-label="Original Signals">
-              <div className="flex flex-col gap-1 pb-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">Your inbox</span>
-                    <h2 className="text-sm font-bold text-foreground">Inbound Signals</h2>
-                  </div>
-                  <span className="text-xs text-muted-foreground font-mono">{messages.length} signals</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-tight">
-                  Simulate inbound chaos by adding signals, or click an item below:
-                </p>
-              </div>
-
-              {/* Inbound Simulator triggers */}
-              <div className="grid grid-cols-3 gap-1.5 p-1 bg-secondary/50 rounded-xl border border-border/50">
-                <button 
-                  onClick={() => triggerInboundSimulation("slack")}
-                  className="py-2 text-[10px] font-bold rounded-lg transition-all text-center bg-card text-foreground shadow-2xs flex items-center justify-center gap-1 hover:bg-card/80 cursor-pointer"
-                >
-                  <MessageSquare className="h-3 w-3 text-emerald-500" /> +Slack
-                </button>
-                <button 
-                  onClick={() => triggerInboundSimulation("email")}
-                  className="py-2 text-[10px] font-bold rounded-lg transition-all text-center bg-card text-foreground shadow-2xs flex items-center justify-center gap-1 hover:bg-card/80 cursor-pointer"
-                >
-                  <Mail className="h-3 w-3 text-indigo-500" /> +Email
-                </button>
-                <button 
-                  onClick={() => triggerInboundSimulation("jira")}
-                  className="py-2 text-[10px] font-bold rounded-lg transition-all text-center bg-card text-foreground shadow-2xs flex items-center justify-center gap-1 hover:bg-card/80 cursor-pointer"
-                >
-                  <Layers className="h-3 w-3 text-blue-500" /> +Jira
-                </button>
-              </div>
-
-              <ClarityInbox
-                messages={messages}
-                selectedMessageId={selectedMessageId}
-                onSelectMessage={setSelectedMessageId}
-              />
-            </section>
-
-            {/* COLUMN 2: Cognitive Synthesizer (expanded for layout breathability) */}
-            <section className="lg:col-span-7 xl:col-span-8 space-y-6 animate-scale-in" aria-label="Synthesis Engine">
-              <div className="flex flex-col gap-1 pb-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">AI Swarm Translation</span>
-                    <h2 className="text-sm font-bold text-foreground">Action Briefing Resolution</h2>
-                  </div>
-                  <span className="text-xs text-muted-foreground font-mono">Consensus resolved</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-tight">
-                  Inspect how the agent swarm parsed the text and mapped it to a clear task block:
-                </p>
-              </div>
-
-              {selectedMessage ? (
-                <div className="space-y-6">
-                  <TranslatedTaskCard
-                    message={selectedMessage}
-                    onAcknowledge={handleAcknowledge}
-                    onOpenDebate={setSelectedDebateId}
-                  />
-                  <ProcessingPipeline />
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-border border-dashed bg-card/40 p-8 text-center text-muted-foreground">
-                  Select an inbound signal to view cognitive compilation stages.
-                </div>
-              )}
-            </section>
-          </div>
-        ) : (
-          /* Focus Calendar View */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* COLUMN 1: Smart Focus Calendar (takes 8/12 or 9/12 cols for a spacious timeline layout) */}
-            <section className="lg:col-span-8 xl:col-span-9 space-y-6 animate-scale-in" aria-label="Smart Focus Calendar">
-              <div className="flex flex-col gap-1 pb-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">Smart Focus Calendar</span>
-                    <h2 className="text-sm font-bold text-foreground">Cognitive Protection</h2>
-                  </div>
-                  <span className="text-xs text-muted-foreground font-mono">09:00 – 18:00</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-tight">
-                  Blocks reserved in your calendar to prevent burnout and shield your focus.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-                <CalendarTimeline blocks={calendar} onAcknowledge={handleCalendarAck} />
-                
-                <div className="mt-5 flex flex-wrap gap-2 text-[10px] font-medium text-muted-foreground justify-center">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/80 px-2 py-0.5 border border-border">
-                    <span className="h-2 w-2 rounded-sm bg-deep-focus" /> Deep Work
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/80 px-2 py-0.5 border border-border">
-                    <span className="h-2 w-2 rounded-sm bg-amber-soft" /> Draft Task
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/80 px-2 py-0.5 border border-border">
-                    <span className="h-2 w-2 rounded-sm bg-mint" /> Scheduled
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/80 px-2 py-0.5 border border-border">
-                    <span className="h-2 w-2 rounded-sm bg-lavender" /> Sync
-                  </span>
-                </div>
-              </div>
-            </section>
-
-            {/* COLUMN 2: Cognitive Telemetry & Load Widget */}
-            <section className="lg:col-span-4 xl:col-span-3 space-y-6 animate-scale-in" aria-label="Cognitive Telemetry">
-              <div className="flex flex-col gap-1 pb-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase">Cognitive Telemetry</span>
-                    <h2 className="text-sm font-bold text-foreground">Load & Energy</h2>
-                  </div>
-                  <span className="text-[10px] font-mono text-muted-foreground uppercase bg-secondary/50 px-2 py-0.5 rounded-full">Live</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-tight">
-                  Forcasted metrics indicating energy reserve depletion limits.
-                </p>
-              </div>
-
-              <CognitiveLoadWidget />
-            </section>
-          </div>
-        )}
-      </div>
-
-      <TraceLog />
-
-      {selectedDebateId && (
-        <AgentDebateModal
-          debateId={selectedDebateId}
-          message={messages.find((m) => m.debate_id === selectedDebateId)}
-          onClose={() => setSelectedDebateId(null)}
-        />
+        </section>
       )}
-    </>
+    </div>
   );
 }
