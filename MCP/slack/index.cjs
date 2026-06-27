@@ -343,7 +343,8 @@ app.get("/test-ui", (req, res) => {
       </div>
     `;
   } else {
-    messagesHtml = `<div class="space-y-4">` + lastIngestedSlackMessages.map(msg => `
+    const sorted = [...lastIngestedSlackMessages].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+    messagesHtml = `<div class="space-y-4">` + sorted.map(msg => `
       <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-5 hover:border-amber-500/30 transition-all duration-300">
         <div class="flex justify-between items-start gap-4 mb-3">
           <div>
