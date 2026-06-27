@@ -56,6 +56,15 @@ class Settings(BaseSettings):
     mcp_transport: Literal["http", "sse", "stdio"] = "http"
     mcp_stdio_command: str = ""               # e.g. "node path/to/mcp-server.js" for stdio
 
+    # ── OAuth credentials (consumed by MCP servers and forwarded on request) ─
+    # These are the same credentials used by the MCP servers themselves.
+    # The orchestrator passes them through to MCP servers that need to refresh tokens.
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    slack_client_id: str = ""
+    slack_client_secret: str = ""
+    slack_bot_token: str = ""
+
     # ── Demo mode ─────────────────────────────────────────────────
     demo_mode: bool = False                   # DEMO_MODE=true → deterministic responses
 

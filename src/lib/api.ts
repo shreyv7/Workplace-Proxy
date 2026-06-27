@@ -58,6 +58,12 @@ export interface ProcessRequest {
   thread_context?: string[];
   /** ID of the neurodivergent user who received the message */
   user_id: string;
+  /**
+   * Google OAuth access token from the Supabase session (session.provider_token).
+   * Forwarded by the backend as Authorization: Bearer to Calendar and Gmail MCP servers.
+   * Omit when the user has not connected Google integrations — MCPs fall back to demo mode.
+   */
+  google_access_token?: string;
 }
 
 export interface FeedbackRequest {

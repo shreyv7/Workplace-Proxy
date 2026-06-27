@@ -28,6 +28,7 @@ from orchestrator.api.schemas import (
 )
 if TYPE_CHECKING:
     from orchestrator.memory.conversation import ConversationMemory
+    from orchestrator.interfaces.mcp_interface import MCPInterface
 
 from orchestrator.interfaces.memory_interface import (
     CorporateContext,
@@ -122,6 +123,7 @@ class Contextualizer(BaseAgent):
         memory: MemoryInterface,
         settings=None,
         backend=None,
+        mcp: "MCPInterface | None" = None,
     ) -> None:
         super().__init__(
             name="contextualizer",
@@ -130,16 +132,22 @@ class Contextualizer(BaseAgent):
             backend=backend,
         )
         self._memory = memory
+        self._mcp = mcp
 
     async def process(  # type: ignore[override]
         self,
         intercepted: InterceptedContext,
         user_id: str,
+        access_token: str | None = None,
     ) -> tuple[EnrichedContext, list[str]]:
         """
-        Enrich the intercepted context with Qdrant memory.
+        Enrich the intercepted context with Qdrant memory and live MCP data.
 
-        Returns (EnrichedContext, warnings). warnings is non-empty when the memory
+        access_token is the user's Google OAuth provider_token. When provided and the
+        source is email, it's forwarded to the Gmail MCP so the enrichment fetches
+        the user's real inbox threads instead of demo data.
+
+        Returns (EnrichedContext, warnings). warnings is non-empty when any upstream
         service was unavailable and defaults were used.
         """
         self._logger.info(
@@ -165,7 +173,36 @@ class Contextualizer(BaseAgent):
         if w2:
             warnings.append(w2)
 
-        prompt = self._build_prompt(intercepted, user_prefs, corporate_ctx)
+        # Phase 2: Fetch live context from MCP servers based on message source.
+        # MessageSource is a str enum so .value gives "email" / "slack".
+        # Degrades gracefully — warnings are added but the pipeline continues.
+        live_messages: list[dict] = []
+        if self._mcp is not None:
+            from orchestrator.api.schemas import MessageSource
+            if intercepted.source == MessageSource.EMAIL:
+                threads, w3 = await self._mcp.get_gmail_threads(
+                    user_id=user_id, access_token=access_token
+                )
+                if w3:
+                    warnings.append(w3)
+                else:
+                    live_messages = [
+                        {"subject": t.get("subject", ""), "snippet": t.get("snippet", ""), "from": t.get("from", "")}
+                        for t in (threads or [])[:5]
+                    ]
+                    self._logger.debug("gmail_context_fetched", count=len(live_messages))
+            elif intercepted.source == MessageSource.SLACK:
+                msgs, w3 = await self._mcp.get_slack_messages(channel="general", user_id=user_id)
+                if w3:
+                    warnings.append(w3)
+                else:
+                    live_messages = [
+                        {"user": m.get("user", ""), "text": m.get("text", ""), "channel": m.get("channel", "")}
+                        for m in (msgs or [])[:5]
+                    ]
+                    self._logger.debug("slack_context_fetched", count=len(live_messages))
+
+        prompt = self._build_prompt(intercepted, user_prefs, corporate_ctx, live_messages)
         result = self._call_json(prompt)
 
         # Parse inferred deadline
@@ -259,9 +296,10 @@ class Contextualizer(BaseAgent):
         intercepted: InterceptedContext,
         user_prefs: UserPreferences,
         corporate_ctx: CorporateContext,
+        live_messages: list[dict] | None = None,
     ) -> str:
         """Assemble the full contextualisation prompt."""
-        context_block = self._build_context_block({
+        context_entries: dict[str, str] = {
             "User formatting preference": user_prefs.formatting_style,
             "User working hours": f"{user_prefs.working_hours_start}–{user_prefs.working_hours_end}",
             "User known triggers": ", ".join(user_prefs.known_triggers) or "none listed",
@@ -269,7 +307,10 @@ class Contextualizer(BaseAgent):
             "Corporate context from memory": corporate_ctx.raw_context or "not available",
             "Known jargon": json.dumps(corporate_ctx.jargon_decoded) if corporate_ctx.jargon_decoded else "none",
             "Sender history": "; ".join(corporate_ctx.sender_history) if corporate_ctx.sender_history else "no history",
-        })
+        }
+        if live_messages:
+            context_entries["Live messages from MCP"] = json.dumps(live_messages, indent=2)
+        context_block = self._build_context_block(context_entries)
 
         vague = intercepted.identified_vague_phrases
         refs = intercepted.key_references

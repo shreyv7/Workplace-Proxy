@@ -35,12 +35,33 @@ const services = [
     color: '\x1b[34m', // Blue
   },
   {
-    name: 'CalendarMCP',
+    name: 'Role1CalendarMCP',
     command: 'node',
     args: ['index.cjs'],
     cwd: path.join(__dirname, 'MCP', 'google-calendar'),
     color: '\x1b[38;5;208m', // Orange
-  }
+  },
+  {
+    name: 'CalendarMCP',
+    command: 'npm',
+    args: ['start'],
+    cwd: path.join(__dirname, 'calendar-mcp-server'),
+    color: '\x1b[33m', // Yellow
+  },
+  {
+    name: 'GmailMCP',
+    command: 'npm',
+    args: ['start'],
+    cwd: path.join(__dirname, 'gmail-mcp-server'),
+    color: '\x1b[34m', // Blue
+  },
+  {
+    name: 'SlackOAuthMCP',
+    command: 'npm',
+    args: ['start'],
+    cwd: path.join(__dirname, 'slack-mcp-server'),
+    color: '\x1b[95m', // Magenta bright
+  },
 ];
 
 if (!dockerComposeSuccess) {

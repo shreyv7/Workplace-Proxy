@@ -10,12 +10,20 @@ export type InboundPayload = {
 
 const FASTAPI_URL = "http://localhost:8000/api/v1/process";
 
-export async function sendRawMessageToSwarm(payload: InboundPayload, userId?: string) {
+export async function sendRawMessageToSwarm(payload: InboundPayload) {
   const msgId = payload.message_id || `msg_sim_${Date.now().toString().slice(-4)}`;
   const timestampIso = new Date().toISOString();
-  
+
+  // Retrieve the authenticated user's real ID and Google access token from
+  // the current Supabase session. provider_token is the Google OAuth token
+  // issued after signInWithOAuth — it's what the Calendar/Gmail MCP servers
+  // need to call the Google APIs on behalf of this user.
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id ?? "usr_clarity_101";
+  const googleAccessToken = session?.provider_token ?? undefined;
+
   // Format for the Python ProcessRequest schema
-  const requestBody = {
+  const requestBody: Record<string, unknown> = {
     message_id: msgId,
     source: payload.source,
     sender_name: payload.sender_name,
@@ -23,7 +31,10 @@ export async function sendRawMessageToSwarm(payload: InboundPayload, userId?: st
     content: payload.content,
     timestamp: timestampIso,
     thread_context: [],
-    user_id: userId || "usr_clarity_101" // Required by Pydantic model
+    user_id: userId,
+    // Forwarded as Authorization: Bearer <token> by MCPInterface to Calendar + Gmail servers.
+    // undefined means the field is omitted from JSON (backend schema marks it optional).
+    ...(googleAccessToken ? { google_access_token: googleAccessToken } : {}),
   };
 
   try {

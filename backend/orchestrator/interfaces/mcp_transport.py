@@ -22,12 +22,12 @@ class MCPTransportAdapter(ABC):
     """Abstract MCP transport. MCPInterface delegates HTTP calls here."""
 
     @abstractmethod
-    async def post(self, path: str, json: dict[str, Any]) -> Any:
+    async def post(self, path: str, json: dict[str, Any], headers: dict[str, str] | None = None) -> Any:
         """POST to the MCP server and return the parsed response body."""
         ...
 
     @abstractmethod
-    async def get(self, path: str, params: dict[str, Any]) -> Any:
+    async def get(self, path: str, params: dict[str, Any], headers: dict[str, str] | None = None) -> Any:
         """GET from the MCP server and return the parsed response body."""
         ...
 
@@ -44,17 +44,21 @@ class HTTPTransportAdapter(MCPTransportAdapter):
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
 
-    async def post(self, path: str, json: dict[str, Any]) -> Any:
+    async def post(self, path: str, json: dict[str, Any], headers: dict[str, str] | None = None) -> Any:
         import httpx
         async with httpx.AsyncClient(timeout=self._timeout) as client:
-            response = await client.post(f"{self._base_url}{path}", json=json)
+            response = await client.post(
+                f"{self._base_url}{path}", json=json, headers=headers or {}
+            )
             response.raise_for_status()
             return response.json()
 
-    async def get(self, path: str, params: dict[str, Any]) -> Any:
+    async def get(self, path: str, params: dict[str, Any], headers: dict[str, str] | None = None) -> Any:
         import httpx
         async with httpx.AsyncClient(timeout=self._timeout) as client:
-            response = await client.get(f"{self._base_url}{path}", params=params)
+            response = await client.get(
+                f"{self._base_url}{path}", params=params, headers=headers or {}
+            )
             response.raise_for_status()
             return response.json()
 
@@ -76,13 +80,13 @@ class SSETransportAdapter(MCPTransportAdapter):
     See RISK_REGISTER.md RISK-I03.
     """
 
-    async def post(self, path: str, json: dict[str, Any]) -> Any:
+    async def post(self, path: str, json: dict[str, Any], headers: dict[str, str] | None = None) -> Any:
         raise NotImplementedError(
             "SSE MCP transport not yet implemented. "
             "Confirm Calendar MCP transport with Role 1, then implement here."
         )
 
-    async def get(self, path: str, params: dict[str, Any]) -> Any:
+    async def get(self, path: str, params: dict[str, Any], headers: dict[str, str] | None = None) -> Any:
         raise NotImplementedError("SSE MCP transport not yet implemented.")
 
     async def ping(self) -> bool:
@@ -100,14 +104,14 @@ class StdioTransportAdapter(MCPTransportAdapter):
     def __init__(self, command: str) -> None:
         self._command = command
 
-    async def post(self, path: str, json: dict[str, Any]) -> Any:
+    async def post(self, path: str, json: dict[str, Any], headers: dict[str, str] | None = None) -> Any:
         raise NotImplementedError(
             f"stdio MCP transport not yet implemented. "
             f"Command would be: {self._command!r}. "
             "Confirm Calendar MCP transport with Role 1, then implement here."
         )
 
-    async def get(self, path: str, params: dict[str, Any]) -> Any:
+    async def get(self, path: str, params: dict[str, Any], headers: dict[str, str] | None = None) -> Any:
         raise NotImplementedError("stdio MCP transport not yet implemented.")
 
     async def ping(self) -> bool:
