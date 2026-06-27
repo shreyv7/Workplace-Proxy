@@ -208,6 +208,28 @@ function DailyClarity() {
   }, [messages, selectedMessageId]);
 
   // 3. Database operations
+  // 3. Database operations
+  const syncToGoogleCalendar = async (title: string, startStr: string, endStr: string, reason: string) => {
+    try {
+      const todayStr = new Date().toISOString().split("T")[0];
+      const localStart = new Date(`${todayStr}T${startStr}:00`);
+      const localEnd = new Date(`${todayStr}T${endStr}:00`);
+      
+      await fetch("http://localhost:3002/calendar/create-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          start: localStart.toISOString(),
+          end: localEnd.toISOString(),
+          description: reason
+        })
+      });
+    } catch (e) {
+      console.warn("Google Calendar sync offline or unconfigured:", e);
+    }
+  };
+
   const handleAcknowledge = async (messageId: string) => {
     // 1. Update Supabase messages table
     await supabase
@@ -220,6 +242,12 @@ function DailyClarity() {
       .from("calendar_blocks")
       .update({ acknowledged: true })
       .eq("source_message_id", messageId);
+
+    // 3. Sync to real Google Calendar if block exists
+    const block = calendar.find((b) => b.source_message_id === messageId);
+    if (block) {
+      await syncToGoogleCalendar(block.title, block.start, block.end, block.reason || "");
+    }
   };
 
   const handleCalendarAck = async (blockId: string) => {
@@ -230,11 +258,15 @@ function DailyClarity() {
 
     // Check if block was created from a signal, and update that signal too
     const block = calendar.find((b) => b.id === blockId);
-    if (block?.source_message_id) {
-      await supabase
-        .from("messages")
-        .update({ acknowledged: true })
-        .eq("message_id", block.source_message_id);
+    if (block) {
+      await syncToGoogleCalendar(block.title, block.start, block.end, block.reason || "");
+      
+      if (block.source_message_id) {
+        await supabase
+          .from("messages")
+          .update({ acknowledged: true })
+          .eq("message_id", block.source_message_id);
+      }
     }
   };
 

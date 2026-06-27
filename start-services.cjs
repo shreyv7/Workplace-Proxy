@@ -17,6 +17,27 @@ const services = [
     args: ['run', 'dev'],
     cwd: __dirname,
     color: '\x1b[36m', // Cyan
+  },
+  {
+    name: 'SlackMCP',
+    command: 'node',
+    args: ['index.js'],
+    cwd: path.join(__dirname, 'MCP', 'slack'),
+    color: '\x1b[33m', // Yellow
+  },
+  {
+    name: 'EmailMCP',
+    command: 'node',
+    args: ['index.js'],
+    cwd: path.join(__dirname, 'MCP', 'email'),
+    color: '\x1b[34m', // Blue
+  },
+  {
+    name: 'CalendarMCP',
+    command: 'node',
+    args: ['index.js'],
+    cwd: path.join(__dirname, 'MCP', 'google-calendar'),
+    color: '\x1b[38;5;208m', // Orange
   }
 ];
 

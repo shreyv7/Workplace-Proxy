@@ -40,3 +40,8 @@ __pycache__/
 .venv/
 venv/
 .env
+# MCP Server Local Config & Tokens
+MCP/**/config.json
+MCP/**/token.json
+MCP/**/node_modules
+google-credentials.json
