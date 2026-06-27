@@ -28,45 +28,24 @@ const services = [
     color: '\x1b[33m', // Yellow
   },
   {
-    name: 'EmailMCP',
-    command: 'node',
-    args: ['index.cjs'],
-    cwd: path.join(__dirname, 'MCP', 'email'),
-    color: '\x1b[34m', // Blue
-  },
-  {
-    name: 'Role1CalendarMCP',
-    command: 'node',
-    args: ['index.cjs'],
-    cwd: path.join(__dirname, 'MCP', 'google-calendar'),
-    color: '\x1b[38;5;208m', // Orange
-  },
-  {
-    name: 'CalendarMCP',
-    command: 'npm',
-    args: ['start'],
-    cwd: path.join(__dirname, 'calendar-mcp-server'),
-    color: '\x1b[33m', // Yellow
-  },
-  {
     name: 'GmailMCP',
     command: 'npm',
     args: ['start'],
     cwd: path.join(__dirname, 'gmail-mcp-server'),
     color: '\x1b[34m', // Blue
   },
-  {
-    name: 'SlackOAuthMCP',
-    command: 'npm',
-    args: ['start'],
-    cwd: path.join(__dirname, 'slack-mcp-server'),
-    color: '\x1b[95m', // Magenta bright
-  },
 ];
 
 if (!dockerComposeSuccess) {
-  console.log('\x1b[33m[System] Docker not active. Appending local Python services (Orchestrator & MemoryService) to the runner...\x1b[0m');
+  console.log('\x1b[33m[System] Docker not active. Appending local Python services (Orchestrator & MemoryService) and CalendarMCP to the runner...\x1b[0m');
   services.push(
+    {
+      name: 'CalendarMCP',
+      command: 'npm',
+      args: ['start'],
+      cwd: path.join(__dirname, 'calendar-mcp-server'),
+      color: '\x1b[33m', // Yellow
+    },
     {
       name: 'MemoryService',
       command: path.join(__dirname, 'backend', 'venv', 'bin', 'python'),
@@ -82,6 +61,14 @@ if (!dockerComposeSuccess) {
       color: '\x1b[32m', // Green
     }
   );
+} else {
+  // We still need to make sure the dockerized calendar-mcp is up to date since we edited index.js
+  console.log('\x1b[36m[System] Rebuilding dockerized Calendar MCP container with updated endpoints...\x1b[0m');
+  try {
+    execSync('docker compose up -d --build calendar-mcp', { stdio: 'inherit', cwd: __dirname });
+  } catch (e) {
+    console.log('\x1b[31m[System] Warning: Failed to rebuild calendar-mcp container.\x1b[0m');
+  }
 }
 
 const children = [];

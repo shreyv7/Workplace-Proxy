@@ -174,6 +174,44 @@ app.post('/calendar/find-slot', async (req, res) => {
   res.json(demoNextSlot(duration_minutes, preferred_after));
 });
 
+/**
+ * POST /calendar/create-event
+ * Creates an event in the user's primary Google Calendar.
+ */
+app.post('/calendar/create-event', async (req, res) => {
+  try {
+    const { title, start, end, description } = req.body;
+    if (!title || !start || !end) {
+      return res.status(400).json({ error: "title, start, and end are required." });
+    }
+
+    const token = resolveToken(req);
+    if (!token) {
+      return res.status(401).json({ error: "Google Calendar not authenticated." });
+    }
+
+    const calendar = buildCalendarClient(token);
+    const response = await calendar.events.insert({
+      calendarId: "primary",
+      requestBody: {
+        summary: title,
+        description: description || "Automatically scheduled via Workplace Proxy Swarm consensus.",
+        start: { dateTime: new Date(start).toISOString() },
+        end: { dateTime: new Date(end).toISOString() }
+      }
+    });
+
+    res.json({
+      success: true,
+      event_id: response.data.id,
+      html_link: response.data.htmlLink
+    });
+  } catch (err) {
+    console.error("Error creating Google Calendar event:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   const hasToken = !!(process.env.GOOGLE_ACCESS_TOKEN || process.env.GOOGLE_CLIENT_ID);
   console.log(`[Calendar MCP] Listening on port ${PORT} | google_auth=${hasToken ? 'configured' : 'demo_mode'}`);
