@@ -202,6 +202,31 @@ class HealthResponse(BaseModel):
     )
 
 
+class ToneType(str, Enum):
+    PROFESSIONAL = "professional"
+    CASUAL = "casual"
+    CONCISE = "concise"
+
+
+class ReplyDraft(BaseModel):
+    text: str
+    tone: ToneType
+    word_count: int
+
+
+class GenerateReplyRequest(BaseModel):
+    message_id: str
+    original_content: str
+    sender_name: str
+    tone: ToneType | None = ToneType.PROFESSIONAL
+    additional_context: str | None = None
+
+
+class GenerateReplyResponse(BaseModel):
+    success: bool
+    drafts: list[ReplyDraft]
+
+
 # ── Internal pipeline models (not exposed via API) ────────────────────────────
 
 class InterceptedContext(BaseModel):

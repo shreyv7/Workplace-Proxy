@@ -281,9 +281,9 @@ app.post("/config", (req, res) => {
   }
 
   saveConfig({
-    clientId,
-    clientSecret,
-    redirectUri: redirectUri || `http://localhost:${PORT}/oauth2callback`
+    clientId: clientId.trim(),
+    clientSecret: clientSecret.trim(),
+    redirectUri: (redirectUri || `http://localhost:${PORT}/oauth2callback`).trim()
   });
 
   res.json({ success: true, message: "Email configuration saved successfully." });

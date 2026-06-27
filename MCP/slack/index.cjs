@@ -287,8 +287,8 @@ app.post("/config", (req, res) => {
   }
 
   saveConfig({
-    botToken,
-    channels: newChannels || []
+    botToken: botToken.trim(),
+    channels: (newChannels || []).map(c => c.trim()).filter(Boolean)
   });
 
   res.json({ success: true, message: "Slack configuration updated successfully." });
@@ -305,6 +305,31 @@ app.post("/disconnect", (req, res) => {
   if (fs.existsSync(STATE_PATH)) fs.unlinkSync(STATE_PATH);
 
   res.json({ success: true, message: "Slack integration disconnected successfully." });
+});
+
+// ── Reply Endpoint ──
+app.post("/reply", async (req, res) => {
+  if (!webClient) {
+    return res.status(400).json({ error: "Slack is not configured or authenticated." });
+  }
+
+  const { channelId, text, threadTs } = req.body;
+  if (!channelId || !text) {
+    return res.status(400).json({ error: "channelId and text are required." });
+  }
+
+  try {
+    const result = await webClient.chat.postMessage({
+      channel: channelId,
+      text: text,
+      thread_ts: threadTs
+    });
+
+    res.json({ success: true, result });
+  } catch (err) {
+    console.error("Slack reply failed:", err);
+    res.status(500).json({ error: "Failed to send Slack reply: " + err.message });
+  }
 });
 
 // ── Test Page showing Slack Data ──

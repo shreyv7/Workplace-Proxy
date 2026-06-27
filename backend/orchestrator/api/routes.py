@@ -16,6 +16,9 @@ from orchestrator.api.schemas import (
     HealthResponse,
     ProcessRequest,
     ProcessResponse,
+    GenerateReplyRequest,
+    GenerateReplyResponse,
+    ReplyDraft,
 )
 from orchestrator.config.settings import Settings, get_settings
 from orchestrator.utils.logging_config import get_logger
@@ -129,6 +132,97 @@ async def submit_feedback(
         success=False,
         message="Feedback received but could not be stored (memory service unavailable).",
     )
+
+
+@router.post(
+    "/generate-reply",
+    response_model=GenerateReplyResponse,
+    summary="Generate reply draft options for a message",
+)
+async def generate_reply(
+    payload: GenerateReplyRequest,
+    request: Request,
+) -> GenerateReplyResponse:
+    """Generate 3 reply options based on tone (casual, professional, concise)."""
+    engine = _get_engine(request)
+    backend = engine._translator._backend
+    
+    prompt = f"""
+    You are an AI assistant helping a neurodivergent professional draft replies to workplace messages.
+    Generate exactly three reply drafts for the following inbound message:
+    
+    Sender Name: {payload.sender_name}
+    Message Content: {payload.original_content}
+    Tone Preference requested by user: {payload.tone.value}
+    
+    Additional Context from user (if any): {payload.additional_context or "None"}
+    
+    Provide three distinct drafts:
+    1. A CASUAL draft (friendly, open, collaborative).
+    2. A PROFESSIONAL draft (structured, polite, corporate-appropriate).
+    3. A CONCISE draft (short, direct, to the point, minimal fluff).
+    
+    Format the output as a JSON object matching this schema:
+    {{
+        "drafts": [
+            {{
+                "text": "The Casual draft text",
+                "tone": "casual",
+                "word_count": 12
+            }},
+            {{
+                "text": "The Professional draft text",
+                "tone": "professional",
+                "word_count": 15
+            }},
+            {{
+                "text": "The Concise draft text",
+                "tone": "concise",
+                "word_count": 8
+            }}
+        ]
+    }}
+    """
+    
+    try:
+        system_prompt = "You are a professional communication draft generator. You must output valid JSON matching the requested schema."
+        result = backend.call_json(prompt=prompt, system_prompt=system_prompt, temperature=0.5)
+        
+        drafts = []
+        if isinstance(result, dict) and "drafts" in result:
+            for item in result["drafts"]:
+                drafts.append(ReplyDraft(
+                    text=item.get("text", ""),
+                    tone=item.get("tone", "professional"),
+                    word_count=item.get("word_count", len(item.get("text", "").split()))
+                ))
+        
+        if not drafts:
+            raise ValueError("Empty or malformed drafts returned by LLM")
+            
+        return GenerateReplyResponse(success=True, drafts=drafts)
+        
+    except Exception as exc:
+        logger.error("generate_reply_failed", error=str(exc), exc_info=True)
+        # Fallback to template-based drafts if API fails or offline
+        fallback_drafts = [
+            ReplyDraft(
+                text=f"Hey {payload.sender_name}, got your message about '{payload.original_content[:30]}...'. Let me check my calendar and get back to you shortly!",
+                tone="casual",
+                word_count=21
+            ),
+            ReplyDraft(
+                text=f"Dear {payload.sender_name},\n\nThank you for reaching out. I have received your message regarding '{payload.original_content[:30]}...' and am currently reviewing it. I will provide a detailed update shortly.\n\nBest regards,",
+                tone="professional",
+                word_count=32
+            ),
+            ReplyDraft(
+                text=f"Got it. Let me look into this and reply soon.",
+                tone="concise",
+                word_count=10
+            )
+        ]
+        return GenerateReplyResponse(success=True, drafts=fallback_drafts)
 
 
 @router.get(
