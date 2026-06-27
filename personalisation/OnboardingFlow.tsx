@@ -10,7 +10,7 @@ import { WorkScheduleStep } from "./steps/WorkScheduleStep";
 import { WorkHoursClockStep } from "./steps/WorkHoursClockStep";
 import { StressTriggersStep } from "./steps/StressTriggersStep";
 import { UrgencyPreferencesStep } from "./steps/UrgencyPreferencesStep";
-import { ArrowLeft, ArrowRight, Check, HelpCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, HelpCircle, Loader2, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "../src/lib/supabase";
 
 export const OnboardingFlow: React.FC = () => {
@@ -22,6 +22,7 @@ export const OnboardingFlow: React.FC = () => {
   const [transitioning, setTransitioning] = useState(false);
 
   const [playVideo, setPlayVideo] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
   const [fadeOpacity, setFadeOpacity] = useState(1);
   const [hasStartedFadeOut, setHasStartedFadeOut] = useState(false);
   const videoRef = React.useRef<HTMLVideoElement>(null);
@@ -172,6 +173,7 @@ export const OnboardingFlow: React.FC = () => {
           src="/phone.mp4"
           className="w-full h-full object-cover animate-fade-in"
           autoPlay
+          muted={isMuted}
           playsInline
           onPlay={() => {
             // Start 3 second fade-in from black
@@ -199,6 +201,21 @@ export const OnboardingFlow: React.FC = () => {
             transitionDuration: '3000ms'
           }}
         />
+        {/* Mute/Unmute Button */}
+        <button
+          onClick={() => setIsMuted(!isMuted)}
+          className="absolute bottom-6 left-6 z-50 text-[10px] tracking-widest font-mono font-semibold uppercase text-white/50 hover:text-white border border-white/10 bg-black/40 backdrop-blur-md px-4 py-2.5 rounded-xl transition-all hover:scale-[1.02] cursor-pointer flex items-center gap-2"
+        >
+          {isMuted ? (
+            <>
+              <VolumeX className="h-3.5 w-3.5" /> Unmute
+            </>
+          ) : (
+            <>
+              <Volume2 className="h-3.5 w-3.5" /> Mute
+            </>
+          )}
+        </button>
         {/* Skip Intro Button */}
         <button
           onClick={() => setPlayVideo(false)}
