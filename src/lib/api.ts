@@ -329,4 +329,89 @@ export async function generateReplyDrafts(
   return postJson<GenerateReplyResponse>("/api/v1/generate-reply", req);
 }
 
+export interface NormalizedEvent {
+  id: string;
+  provider: string;
+  title: string;
+  start: string;
+  end: string;
+  timezone?: string;
+  attendees: string[];
+  location?: string;
+  meeting_link?: string;
+  description?: string;
+  is_all_day: boolean;
+  source: string;
+  importance_score: number;
+  prep_required: boolean;
+  prep_notes?: string;
+  can_reschedule: boolean;
+  conflict_level: "low" | "medium" | "high";
+  block_type: BlockType;
+}
+
+export interface PriorityTask {
+  id: string;
+  title: string;
+  importance: string;
+  expected_duration: string;
+  recommended_time: string;
+  why_important: string;
+  status: "Do now" | "Before meeting" | "Can wait";
+}
+
+export interface DailyClarityResponse {
+  date: string;
+  timezone: string;
+  headline: string;
+  summary: string;
+  stats: {
+    meetings: number;
+    focusBlocks: number;
+    conflicts: number;
+    nextUp: string;
+  };
+  schedule_blocks: NormalizedEvent[];
+  top_priorities: PriorityTask[];
+  next_meeting: NormalizedEvent | null;
+  meeting_insights: Record<string, string>;
+  warnings: string[];
+  notes: string;
+}
+
+export async function getDailyClarity(
+  date: string,
+  userId: string,
+  googleAccessToken?: string,
+): Promise<DailyClarityResponse> {
+  const tokenQuery = googleAccessToken ? `&google_access_token=${encodeURIComponent(googleAccessToken)}` : "";
+  return getJson<DailyClarityResponse>(`/api/v1/daily-clarity?date=${date}&user_id=${userId}${tokenQuery}`);
+}
+
+export async function saveDailyNotes(
+  userId: string,
+  date: string,
+  content: string,
+): Promise<{ status: string; message: string }> {
+  return postJson<{ status: string; message: string }>("/api/v1/daily-clarity/notes", {
+    user_id: userId,
+    date,
+    content,
+  });
+}
+
+export async function rescheduleBlock(
+  userId: string,
+  blockId: string,
+  newStart: string,
+  newEnd: string,
+): Promise<{ status: string; message: string }> {
+  return postJson<{ status: string; message: string }>("/api/v1/daily-clarity/reschedule", {
+    user_id: userId,
+    block_id: blockId,
+    new_start: newStart,
+    new_end: newEnd,
+  });
+}
+
 export { ApiError };

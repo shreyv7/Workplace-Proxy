@@ -45,3 +45,4 @@ MCP/**/config.json
 MCP/**/token.json
 MCP/**/node_modules
 google-credentials.json
+*.db

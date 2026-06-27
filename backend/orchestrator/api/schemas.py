@@ -326,3 +326,63 @@ class GCPTestResponse(BaseModel):
     calendar: MCPServiceResult
     gmail: MCPServiceResult
     tested_at: str = Field(..., description="UTC ISO 8601 timestamp")
+
+
+# ── Daily Clarity (GET /api/v1/daily-clarity) ────────────────────────────────
+
+class NormalizedEvent(BaseModel):
+    id: str
+    provider: str = "google"
+    title: str
+    start: str  # ISO 8601
+    end: str    # ISO 8601
+    timezone: str | None = None
+    attendees: list[str] = Field(default_factory=list)
+    location: str | None = None
+    meeting_link: str | None = None
+    description: str | None = None
+    is_all_day: bool = False
+    source: str = "calendar"
+    importance_score: int = 3
+    prep_required: bool = False
+    prep_notes: str | None = None
+    can_reschedule: bool = True
+    conflict_level: str = "low"
+    block_type: str = "meeting"
+
+
+class PriorityTask(BaseModel):
+    id: str
+    title: str
+    importance: str
+    expected_duration: str
+    recommended_time: str
+    why_important: str
+    status: str  # "Do now" | "Before meeting" | "Can wait"
+
+
+class DailyClarityResponse(BaseModel):
+    date: str  # YYYY-MM-DD
+    timezone: str
+    headline: str
+    summary: str
+    stats: dict[str, Any]  # {"meetings": int, "focusBlocks": int, "conflicts": int, "nextUp": str}
+    schedule_blocks: list[NormalizedEvent]
+    top_priorities: list[PriorityTask]
+    next_meeting: NormalizedEvent | None = None
+    meeting_insights: dict[str, str]
+    warnings: list[str]
+    notes: str
+
+
+class NotesSaveRequest(BaseModel):
+    user_id: str
+    date: str  # YYYY-MM-DD
+    content: str
+
+
+class RescheduleRequest(BaseModel):
+    user_id: str
+    block_id: str
+    new_start: str  # ISO 8601 or HH:MM
+    new_end: str    # ISO 8601 or HH:MM
