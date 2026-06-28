@@ -290,7 +290,278 @@ app.post('/calendar/create-event', async (req, res) => {
   }
 });
 
+// ── Test UI ───────────────────────────────────────────────────────────────────
+
+app.get('/test-ui', (req, res) => {
+  const hasToken = !!(process.env.GOOGLE_ACCESS_TOKEN || process.env.GOOGLE_CLIENT_ID);
+  const authMode = hasToken ? 'Google OAuth Configured' : 'Demo Mode (No Token)';
+  const authColor = hasToken ? '#34d399' : '#f59e0b';
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Calendar MCP Test Harness</title>
+      <script src="https://cdn.tailwindcss.com"></script>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+      <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0b0f19; color: #f3f4f6; }
+        .code-font { font-family: 'JetBrains Mono', monospace; }
+        .result-box { min-height: 120px; background: #0d1117; border: 1px solid #1e2a3a; border-radius: 1rem; padding: 1rem; overflow-x: auto; white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #6ee7b7; }
+        .spinner { display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #34d399; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading .spinner { display: inline-block; }
+        .loading .btn-text { display: none; }
+        input, textarea { background: #0d1117; border: 1px solid #1e2a3a; border-radius: 0.5rem; padding: 0.5rem 0.75rem; width: 100%; color: #f3f4f6; font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+        input:focus, textarea:focus { outline: none; border-color: #34d399; }
+        label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; display: block; }
+      </style>
+    </head>
+    <body class="p-8 min-h-screen">
+      <div class="max-w-6xl mx-auto">
+
+        <!-- Header -->
+        <header class="mb-10 flex justify-between items-center border-b border-gray-800 pb-6">
+          <div>
+            <h1 class="text-3xl font-extrabold tracking-tight" style="background: linear-gradient(to right, #34d399, #6ee7b7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Calendar MCP Test Harness</h1>
+            <p class="text-gray-400 mt-2 text-sm">Live Google Calendar API payload inspector and endpoint tester.</p>
+          </div>
+          <div class="bg-gray-900/80 border border-gray-800 rounded-2xl px-5 py-3 text-right">
+            <span class="text-[10px] font-bold tracking-widest text-emerald-500 uppercase block">Server Port</span>
+            <span class="text-xl font-extrabold text-white mt-1 block">${PORT}</span>
+          </div>
+        </header>
+
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+          <!-- Left: Status + API refs -->
+          <div class="space-y-6">
+            <div class="bg-gray-900/50 border border-gray-800/80 rounded-3xl p-6 backdrop-blur-xl">
+              <h2 class="text-lg font-bold mb-4">MCP Health Status</h2>
+              <div class="space-y-4 text-sm">
+                <div class="flex justify-between py-2 border-b border-gray-800">
+                  <span class="text-gray-400">Service:</span>
+                  <span class="font-bold flex items-center gap-1.5" style="color: #34d399;">
+                    <span class="h-2 w-2 rounded-full bg-emerald-400 animate-ping inline-block"></span> Online
+                  </span>
+                </div>
+                <div class="flex justify-between py-2 border-b border-gray-800">
+                  <span class="text-gray-400">Auth Mode:</span>
+                  <span class="font-mono font-bold" style="color: ${authColor};">${authMode}</span>
+                </div>
+                <div class="flex justify-between py-2 border-b border-gray-800">
+                  <span class="text-gray-400">Client ID:</span>
+                  <span class="font-mono text-xs" style="color: #9ca3af;">${process.env.GOOGLE_CLIENT_ID ? process.env.GOOGLE_CLIENT_ID.slice(0, 12) + '…' : 'Not set'}</span>
+                </div>
+                <div class="flex justify-between py-2">
+                  <span class="text-gray-400">Access Token:</span>
+                  <span class="font-mono text-xs" style="color: #9ca3af;">${process.env.GOOGLE_ACCESS_TOKEN ? '●●●●' + process.env.GOOGLE_ACCESS_TOKEN.slice(-6) : 'Not set'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-gray-900/50 border border-gray-800/80 rounded-3xl p-6 backdrop-blur-xl">
+              <h2 class="text-lg font-bold mb-3">API Endpoints</h2>
+              <p class="text-xs text-gray-400 leading-relaxed mb-4">This server bridges the Google Calendar API into structured cognitive time-block payloads for the Role 2 orchestrator's Scheduler agent.</p>
+              <div class="space-y-2">
+                <a href="/health" class="flex items-center text-xs font-semibold gap-1" style="color: #34d399;">View Health JSON →</a>
+                <a href="/calendar/today" class="flex items-center text-xs font-semibold gap-1" style="color: #34d399;">GET /calendar/today →</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Interactive Testers -->
+          <div class="lg:col-span-2 space-y-6">
+
+            <!-- GET /calendar/today -->
+            <div class="bg-gray-900/50 border border-gray-800/80 rounded-3xl p-6 backdrop-blur-xl">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mr-2">GET</span>
+                  <span class="text-lg font-bold">/calendar/today</span>
+                </div>
+                <button id="btn-today" onclick="fetchToday()" class="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm" style="background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); color: #34d399;">
+                  <span class="spinner" id="spinner-today"></span>
+                  <span class="btn-text">Fetch Today's Blocks</span>
+                </button>
+              </div>
+              <p class="text-xs text-gray-400 mb-4">Returns all calendar blocks for today. Uses Google Calendar API if a token is present, otherwise returns realistic demo data.</p>
+              <div id="result-today" class="result-box text-gray-500 italic">Click "Fetch Today's Blocks" to call the endpoint…</div>
+            </div>
+
+            <!-- POST /calendar/find-slot -->
+            <div class="bg-gray-900/50 border border-gray-800/80 rounded-3xl p-6 backdrop-blur-xl">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 mr-2">POST</span>
+                  <span class="text-lg font-bold">/calendar/find-slot</span>
+                </div>
+                <button id="btn-slot" onclick="findSlot()" class="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm" style="background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #f59e0b;">
+                  <span class="spinner" id="spinner-slot"></span>
+                  <span class="btn-text">Find Slot</span>
+                </button>
+              </div>
+              <p class="text-xs text-gray-400 mb-4">Finds the next available time slot matching the given duration and preferred start time.</p>
+              <div class="grid grid-cols-3 gap-3 mb-4">
+                <div>
+                  <label>Duration (mins)</label>
+                  <input type="number" id="slot-duration" value="30" min="5" max="480">
+                </div>
+                <div>
+                  <label>Block Type</label>
+                  <input type="text" id="slot-type" value="shallow_work" placeholder="e.g. deep_work">
+                </div>
+                <div>
+                  <label>Preferred After (ISO)</label>
+                  <input type="text" id="slot-after" placeholder="e.g. 2026-06-28T14:00:00">
+                </div>
+              </div>
+              <div id="result-slot" class="result-box text-gray-500 italic">Fill in the fields and click "Find Slot"…</div>
+            </div>
+
+            <!-- POST /calendar/create-event -->
+            <div class="bg-gray-900/50 border border-gray-800/80 rounded-3xl p-6 backdrop-blur-xl">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 mr-2">POST</span>
+                  <span class="text-lg font-bold">/calendar/create-event</span>
+                </div>
+                <button id="btn-create" onclick="createEvent()" class="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm" style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); color: #818cf8;">
+                  <span class="spinner" id="spinner-create"></span>
+                  <span class="btn-text">Create Event</span>
+                </button>
+              </div>
+              <p class="text-xs text-gray-400 mb-4">Creates a new event in the authenticated user's primary Google Calendar. Requires a valid Google access token.</p>
+              <div class="grid grid-cols-2 gap-3 mb-3">
+                <div class="col-span-2">
+                  <label>Event Title</label>
+                  <input type="text" id="ev-title" value="Deep Work — Workplace Proxy Test" placeholder="Event title">
+                </div>
+                <div>
+                  <label>Start (ISO)</label>
+                  <input type="text" id="ev-start" placeholder="e.g. 2026-06-28T15:00:00">
+                </div>
+                <div>
+                  <label>End (ISO)</label>
+                  <input type="text" id="ev-end" placeholder="e.g. 2026-06-28T16:00:00">
+                </div>
+                <div class="col-span-2">
+                  <label>Description (optional)</label>
+                  <input type="text" id="ev-desc" placeholder="Scheduled by Workplace Proxy swarm consensus.">
+                </div>
+              </div>
+              <div id="result-create" class="result-box text-gray-500 italic">Fill in the fields and click "Create Event"…</div>
+            </div>
+
+          </div>
+        </section>
+      </div>
+
+      <script>
+        function setLoading(btnId, spinnerId, loading) {
+          const btn = document.getElementById(btnId);
+          const sp = document.getElementById(spinnerId);
+          if (loading) { btn.classList.add('loading'); sp.style.display = 'inline-block'; }
+          else { btn.classList.remove('loading'); sp.style.display = 'none'; }
+        }
+
+        function pretty(data) {
+          return JSON.stringify(data, null, 2);
+        }
+
+        async function fetchToday() {
+          setLoading('btn-today', 'spinner-today', true);
+          const el = document.getElementById('result-today');
+          try {
+            const r = await fetch('/calendar/today');
+            const data = await r.json();
+            const blocks = Array.isArray(data) ? data : [data];
+            el.style.color = '#6ee7b7';
+            el.textContent = pretty(blocks);
+          } catch(e) {
+            el.style.color = '#f87171';
+            el.textContent = 'Error: ' + e.message;
+          } finally {
+            setLoading('btn-today', 'spinner-today', false);
+          }
+        }
+
+        async function findSlot() {
+          setLoading('btn-slot', 'spinner-slot', true);
+          const el = document.getElementById('result-slot');
+          const body = {
+            duration_minutes: parseInt(document.getElementById('slot-duration').value) || 30,
+            block_type: document.getElementById('slot-type').value || 'shallow_work',
+            preferred_after: document.getElementById('slot-after').value || undefined,
+          };
+          try {
+            const r = await fetch('/calendar/find-slot', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            });
+            const data = await r.json();
+            el.style.color = '#fcd34d';
+            el.textContent = pretty(data);
+          } catch(e) {
+            el.style.color = '#f87171';
+            el.textContent = 'Error: ' + e.message;
+          } finally {
+            setLoading('btn-slot', 'spinner-slot', false);
+          }
+        }
+
+        async function createEvent() {
+          setLoading('btn-create', 'spinner-create', true);
+          const el = document.getElementById('result-create');
+          const body = {
+            title: document.getElementById('ev-title').value,
+            start: document.getElementById('ev-start').value,
+            end: document.getElementById('ev-end').value,
+            description: document.getElementById('ev-desc').value,
+          };
+          if (!body.title || !body.start || !body.end) {
+            el.style.color = '#f87171';
+            el.textContent = 'Error: title, start, and end are required.';
+            setLoading('btn-create', 'spinner-create', false);
+            return;
+          }
+          try {
+            const r = await fetch('/calendar/create-event', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            });
+            const data = await r.json();
+            el.style.color = r.ok ? '#818cf8' : '#f87171';
+            el.textContent = pretty(data);
+          } catch(e) {
+            el.style.color = '#f87171';
+            el.textContent = 'Error: ' + e.message;
+          } finally {
+            setLoading('btn-create', 'spinner-create', false);
+          }
+        }
+
+        // Auto-populate start/end with sensible defaults
+        const now = new Date();
+        now.setMinutes(now.getMinutes() < 30 ? 30 : 60, 0, 0);
+        const later = new Date(now.getTime() + 60 * 60 * 1000);
+        const fmt = d => d.toISOString().slice(0, 19);
+        document.getElementById('ev-start').value = fmt(now);
+        document.getElementById('ev-end').value = fmt(later);
+        document.getElementById('slot-after').value = fmt(now);
+      </script>
+    </body>
+    </html>
+  `;
+  res.send(html);
+});
+
 app.listen(PORT, () => {
   const hasToken = !!(process.env.GOOGLE_ACCESS_TOKEN || process.env.GOOGLE_CLIENT_ID);
   console.log(`[Calendar MCP] Listening on port ${PORT} | google_auth=${hasToken ? 'configured' : 'demo_mode'}`);
 });
+

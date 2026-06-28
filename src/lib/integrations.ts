@@ -191,9 +191,12 @@ export async function handleGoogleOAuthReturn(service: 'google_calendar' | 'gmai
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.provider_token) return false;
 
-  // Cache the provider token in sessionStorage
+  // Cache the provider token in both sessionStorage and localStorage so it
+  // survives page reloads. localStorage is the authoritative store; sessionStorage
+  // is a fast same-tab cache.
   if (typeof window !== 'undefined') {
     sessionStorage.setItem("google_provider_token", session.provider_token);
+    localStorage.setItem("google_provider_token", session.provider_token);
   }
 
   const scopeMap: Record<string, string[]> = {

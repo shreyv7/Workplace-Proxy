@@ -102,7 +102,10 @@ function DailyClarity() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      const googleToken = session?.provider_token ?? (typeof window !== "undefined" ? sessionStorage.getItem("google_provider_token") : null) ?? undefined;
+      const googleToken = session?.provider_token 
+        ?? (typeof window !== "undefined" ? sessionStorage.getItem("google_provider_token") : null)
+        ?? (typeof window !== "undefined" ? localStorage.getItem("google_provider_token") : null)
+        ?? undefined;
       const res = await getDailyClarity(date, userId, googleToken);
       setData(res);
       setNotes(res.notes || "");
