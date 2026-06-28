@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link2, ShieldAlert, Cpu } from "lucide-react";
 import { API_BASE_URL } from "../lib/api";
+import { SLACK_MCP_URL, GMAIL_MCP_URL, CALENDAR_MCP_URL } from "../lib/integrations";
 
 interface SourceHealthCardsProps {
   pendingCount: number;
@@ -15,7 +16,7 @@ export function SourceHealthCards({ pendingCount }: SourceHealthCardsProps) {
   const checkHealth = async () => {
     // 1. Slack Health Check
     try {
-      const res = await fetch("http://localhost:3000/health", {
+      const res = await fetch(`${SLACK_MCP_URL}/health`, {
         signal: AbortSignal.timeout(1500),
       });
       setSlackStatus(res.ok ? "online" : "offline");
@@ -25,7 +26,7 @@ export function SourceHealthCards({ pendingCount }: SourceHealthCardsProps) {
 
     // 2. Email Health Check
     try {
-      const res = await fetch("http://localhost:3001/health", {
+      const res = await fetch(`${GMAIL_MCP_URL}/health`, {
         signal: AbortSignal.timeout(1500),
       });
       setEmailStatus(res.ok ? "online" : "offline");
@@ -35,7 +36,7 @@ export function SourceHealthCards({ pendingCount }: SourceHealthCardsProps) {
 
     // 3. Calendar Health Check
     try {
-      const res = await fetch("http://localhost:3002/health", {
+      const res = await fetch(`${CALENDAR_MCP_URL}/health`, {
         signal: AbortSignal.timeout(1500),
       });
       setCalendarStatus(res.ok ? "online" : "offline");

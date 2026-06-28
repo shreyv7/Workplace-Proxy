@@ -16,6 +16,8 @@ import {
   connectGmail,
   connectSlack,
   handleGoogleOAuthReturn,
+  SLACK_MCP_URL,
+  WHATSAPP_MCP_URL,
 } from "../lib/integrations";
 
 export const Route = createFileRoute("/integrations")({
@@ -363,7 +365,7 @@ function IntegrationsPage() {
         channels: slackChannels.split(",").map(c => c.trim()).filter(Boolean)
       };
 
-      const res = await fetch("http://localhost:3000/config", {
+      const res = await fetch(`${SLACK_MCP_URL}/config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
@@ -393,7 +395,7 @@ function IntegrationsPage() {
     setError(null);
 
     try {
-      const res = await fetch("http://localhost:3000/disconnect", {
+      const res = await fetch(`${SLACK_MCP_URL}/disconnect`, {
         method: "POST"
       });
 
@@ -425,7 +427,7 @@ function IntegrationsPage() {
         verifyToken: waVerifyToken.trim()
       };
 
-      const res = await fetch("http://localhost:3003/config", {
+      const res = await fetch(`${WHATSAPP_MCP_URL}/config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
@@ -455,7 +457,7 @@ function IntegrationsPage() {
     setError(null);
 
     try {
-      const res = await fetch("http://localhost:3003/disconnect", {
+      const res = await fetch(`${WHATSAPP_MCP_URL}/disconnect`, {
         method: "POST"
       });
 

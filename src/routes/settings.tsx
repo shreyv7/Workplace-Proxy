@@ -239,7 +239,7 @@ function SystemSettingsPage() {
               <label className="text-xs font-semibold text-muted-foreground">Vector Dimension Mapping</label>
               <input
                 type="text"
-                value="1536 dimensions (OpenAI text-embedding-3-small)"
+                value="768 dimensions (Google text-embedding-004)"
                 disabled
                 className="w-full px-3.5 py-2 text-xs border border-border rounded-xl bg-secondary/40 text-muted-foreground select-all font-mono"
               />

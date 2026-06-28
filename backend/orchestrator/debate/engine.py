@@ -593,7 +593,10 @@ class DebateEngine:
             urgency=UrgencyLevel.MEDIUM,
             inferred_deadline=None,
             explicit_deadline_given=False,
-            decoded_subtext="Translation pipeline failed — manual review required.",
+            # Keep decoded_subtext null so the frontend falls back to the calendar
+            # slot rationale or the neutral "Consensus aligned successfully." message.
+            # The actual error is already captured in state.warnings and backend logs.
+            decoded_subtext=None,
         )
 
     # ── Metrics ───────────────────────────────────────────────────────────────

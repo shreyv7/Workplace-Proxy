@@ -64,9 +64,24 @@ function saveToken(token) {
 // Initial config load
 loadConfig();
 
-// Helper: check if calendar is authenticated
+// Helper: check if calendar is authenticated (own token.json credentials)
 function isCalAuthenticated() {
   return oauth2Client && oauth2Client.credentials && oauth2Client.credentials.access_token;
+}
+
+// Helper: build a one-shot OAuth2 client from a Bearer token passed per-request.
+// This lets the orchestrator forward the user's Supabase provider_token directly.
+function buildBearerClient(bearerToken) {
+  const auth = new google.auth.OAuth2();
+  auth.setCredentials({ access_token: bearerToken });
+  return google.calendar({ version: "v3", auth });
+}
+
+// Helper: extract Authorization: Bearer <token> from request headers.
+function resolveRequestToken(req) {
+  const authHeader = req.headers.authorization || "";
+  if (authHeader.startsWith("Bearer ")) return authHeader.slice(7).trim() || null;
+  return null;
 }
 
 // ── Health Check ──
@@ -137,13 +152,19 @@ app.get("/oauth2callback", async (req, res) => {
 // ── Fetch Today's Calendar Blocks ──
 app.get("/calendar/today", async (req, res) => {
   try {
-    if (!isCalAuthenticated()) {
-      return res.json([]); // Return empty list gracefully if not authenticated
+    // Prefer a per-request Bearer token (forwarded by the orchestrator) so the
+    // real signed-in user's calendar is used rather than the shared token.json.
+    const bearerToken = resolveRequestToken(req);
+    let calendar;
+    if (bearerToken) {
+      calendar = buildBearerClient(bearerToken);
+    } else if (isCalAuthenticated()) {
+      calendar = google.calendar({ version: "v3", auth: oauth2Client });
+    } else {
+      return res.json([]); // not authenticated via either path
     }
 
-    const calendar = google.calendar({ version: "v3", auth: oauth2Client });
-    
-    // Set time limits: start of today to end of today
+    // Today's window in local time so the server TZ matches the user's calendar.
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date();
@@ -161,22 +182,21 @@ app.get("/calendar/today", async (req, res) => {
     const mapped = events.map((event) => {
       const start = event.start.dateTime || event.start.date;
       const end = event.end.dateTime || event.end.date;
-      
-      // Categorize events by title/description keywords
+
+      // Default to "meeting" — every Google Calendar event is a meeting unless
+      // keywords indicate a personal focus or admin block.
       const titleLower = (event.summary || "").toLowerCase();
-      let block_type = "shallow_work";
-      if (titleLower.includes("deep") || titleLower.includes("focus") || titleLower.includes("code")) {
+      let block_type = "meeting";
+      if (titleLower.includes("deep work") || titleLower.includes("focus time") || titleLower.includes("focus block") || titleLower.includes("no meetings")) {
         block_type = "deep_work";
-      } else if (titleLower.includes("meet") || titleLower.includes("sync") || titleLower.includes("standup")) {
-        block_type = "meeting";
-      } else if (titleLower.includes("admin") || titleLower.includes("mail") || titleLower.includes("billing")) {
+      } else if (titleLower.includes("admin") || titleLower.includes("billing") || titleLower.includes("expense")) {
         block_type = "admin";
       }
 
       return {
         start: new Date(start).toISOString(),
         end: new Date(end).toISOString(),
-        block_type: block_type,
+        block_type,
         is_available: false,
         title: event.summary || "Busy Block"
       };

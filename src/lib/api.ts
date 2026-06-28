@@ -415,3 +415,47 @@ export async function rescheduleBlock(
 }
 
 export { ApiError };
+
+// ── Memory Service (port 8001) ────────────────────────────────────────────────
+
+export const MEMORY_SERVICE_URL =
+  (import.meta.env.VITE_MEMORY_SERVICE_URL as string | undefined) ?? "http://localhost:8001";
+
+export interface UserContextResponse {
+  formatting_style: string;
+  preferred_urgency_language: string;
+  working_hours_start: string;
+  working_hours_end: string;
+  deep_work_blocks: string[];
+  known_triggers: string[];
+  raw_context: string;
+}
+
+export interface CorporateContextResponse {
+  relevant_projects: string[];
+  jargon_decoded: Record<string, string>;
+  sender_history: string[];
+  relevant_docs: string[];
+  raw_context: string;
+}
+
+export async function getUserContext(
+  userId: string,
+  query: string = "user preferences focus cycles triggers",
+): Promise<UserContextResponse> {
+  const res = await fetch(
+    `${MEMORY_SERVICE_URL}/context/user?user_id=${encodeURIComponent(userId)}&query=${encodeURIComponent(query)}`,
+  );
+  if (!res.ok) throw new Error(`Memory service error: HTTP ${res.status}`);
+  return res.json() as Promise<UserContextResponse>;
+}
+
+export async function getCorporateContext(
+  query: string = "corporate context projects jargon",
+): Promise<CorporateContextResponse> {
+  const res = await fetch(
+    `${MEMORY_SERVICE_URL}/context/corporate?query=${encodeURIComponent(query)}`,
+  );
+  if (!res.ok) throw new Error(`Memory service error: HTTP ${res.status}`);
+  return res.json() as Promise<CorporateContextResponse>;
+}

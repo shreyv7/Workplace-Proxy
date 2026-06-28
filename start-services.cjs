@@ -54,7 +54,7 @@ const services = [
     optional: true,
   },
   {
-    name: 'WhatsAppMCP',
+    name: 'CalendarMCP',
     command: 'node',
     args: ['index.cjs'],
     cwd: path.join(__dirname, 'MCP', 'whatsapp'),

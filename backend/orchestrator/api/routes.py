@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from orchestrator.agents.base import AgentIdentity
 from orchestrator.api.schemas import (
+    DailyClarityResponse,
     FeedbackRequest,
     FeedbackResponse,
     GCPTestRequest,
@@ -18,21 +19,28 @@ from orchestrator.api.schemas import (
     GenerateReplyResponse,
     HealthResponse,
     MCPServiceResult,
+    NormalizedEvent,
+    NotesSaveRequest,
+    PriorityTask,
     ProcessRequest,
     ProcessResponse,
-    GenerateReplyRequest,
-    GenerateReplyResponse,
-    ReplyDraft,
-    NormalizedEvent,
-    PriorityTask,
-    DailyClarityResponse,
-    NotesSaveRequest,
     RescheduleRequest,
+    ReplyDraft,
     SynthesisPreviewRequest,
     SynthesisPreviewResponse,
 )
 from orchestrator.config.settings import Settings, get_settings
 from orchestrator.utils.logging_config import get_logger
+
+import os as _os
+
+# Path for the daily-notes SQLite DB. When running in Docker the env var
+# DAILY_NOTES_DB should be set to /app/daily_notes.db (the mounted volume).
+# Locally it defaults to a file next to the project root so it's writable.
+_NOTES_DB = _os.getenv(
+    "DAILY_NOTES_DB",
+    _os.path.join(_os.path.dirname(__file__), "..", "..", "..", "daily_notes.db"),
+)
 
 logger = get_logger(__name__)
 
@@ -670,7 +678,7 @@ async def get_daily_clarity(
     # 1. Fetch daily_notes from SQLite local storage (binds to mounted host volume)
     notes_content = ""
     try:
-        conn = sqlite3.connect("/app/daily_notes.db")
+        conn = sqlite3.connect(_NOTES_DB)
         cursor = conn.cursor()
         cursor.execute("CREATE TABLE IF NOT EXISTS daily_notes (user_id TEXT, date TEXT, content TEXT, PRIMARY KEY (user_id, date))")
         cursor.execute("SELECT content FROM daily_notes WHERE user_id = ? AND date = ?", (user_id, date))
@@ -855,7 +863,9 @@ async def get_daily_clarity(
             )
         )
 
-    # Fallback priorities if db has none
+    # If the Swarm has not produced any priorities yet, show placeholder cards so
+    # the dashboard is never blank. Real Swarm output (from /api/v1/process) always
+    # takes precedence and replaces these when present.
     if not priorities:
         priorities = [
             PriorityTask(
@@ -864,7 +874,7 @@ async def get_daily_clarity(
                 importance="high",
                 expected_duration="45 mins",
                 recommended_time="14:00",
-                why_important="Tom requested staging branch verification for release window.",
+                why_important="Shrey flagged the staging branch needs a config check before the release window.",
                 status="Do now"
             ),
             PriorityTask(
@@ -873,9 +883,9 @@ async def get_daily_clarity(
                 importance="medium",
                 expected_duration="30 mins",
                 recommended_time="15:00",
-                why_important="Protect your peak morning focus blocks.",
+                why_important="Devansh Tyagi requested a quick roadmap alignment before the afternoon sprint review.",
                 status="Before meeting"
-            )
+            ),
         ]
 
     # Generate summary headlines
@@ -913,7 +923,7 @@ async def save_daily_notes(payload: NotesSaveRequest) -> JSONResponse:
     import sqlite3
     
     try:
-        conn = sqlite3.connect("/app/daily_notes.db")
+        conn = sqlite3.connect(_NOTES_DB)
         cursor = conn.cursor()
         cursor.execute("CREATE TABLE IF NOT EXISTS daily_notes (user_id TEXT, date TEXT, content TEXT, PRIMARY KEY (user_id, date))")
         cursor.execute("""

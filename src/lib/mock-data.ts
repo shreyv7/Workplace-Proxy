@@ -26,8 +26,8 @@ export type ClarityMessage = {
 export const initialMessages: ClarityMessage[] = [
   {
     message_id: "msg_test_1",
-    sender_name: "Tom (Infra)",
-    sender_role: "Lead DevOps",
+    sender_name: "Shrey",
+    sender_role: "Engineering Lead",
     timestamp: "09:15",
     original_text: "Hey, let's deploy the staging fixes around 14:00 today. We need about 45 minutes to run regression tests.",
     source: "slack",
@@ -54,7 +54,7 @@ export const initialMessages: ClarityMessage[] = [
   },
   {
     message_id: "msg_test_2",
-    sender_name: "Priya (Design)",
+    sender_name: "Anvi Sharma",
     sender_role: "Product Designer",
     timestamp: "10:05",
     original_text: "We need to align on the onboarding flow roadmap at 14:15. Can you make 45 minutes work?",
@@ -82,7 +82,7 @@ export const initialMessages: ClarityMessage[] = [
   },
   {
     message_id: "msg_test_3",
-    sender_name: "Sprint Triage",
+    sender_name: "Devansh Tyagi",
     sender_role: "Product Manager",
     timestamp: "11:20",
     original_text: "Critical budget approval check at 14:00. Needs 30 minutes to review Q3 spreadsheets.",
@@ -110,7 +110,7 @@ export const initialMessages: ClarityMessage[] = [
   },
   {
     message_id: "msg_test_4",
-    sender_name: "Sarah (Marketing)",
+    sender_name: "Anvi Sharma",
     sender_role: "Growth Lead",
     timestamp: "11:30",
     original_text: "Can we quickly review copy docs for the launch campaign at 10:00? Just 30 minutes.",
@@ -137,7 +137,7 @@ export const initialMessages: ClarityMessage[] = [
   },
   {
     message_id: "msg_test_5",
-    sender_name: "Client - Northwind",
+    sender_name: "Shrey",
     sender_role: "External Stakeholder",
     timestamp: "12:10",
     original_text: "Roadmap update review meeting scheduled for 11:30. Let's block 45 minutes.",

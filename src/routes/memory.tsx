@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { initialMemories, MemoryEntry } from "../lib/mock-data";
-import { Brain, Search, Sparkles, User, Building, Database, Clock, RefreshCw } from "lucide-react";
+import { getUserContext, getCorporateContext } from "../lib/api";
+import { useAuth } from "../../personalisation/auth/useAuth";
+import { Brain, Search, Sparkles, User, Building, Database, Clock, RefreshCw, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/memory")({
   head: () => ({
@@ -16,10 +18,137 @@ export const Route = createFileRoute("/memory")({
   component: CognitiveMemory,
 });
 
+function mapUserContextToEntries(ctx: Awaited<ReturnType<typeof getUserContext>>): MemoryEntry[] {
+  const entries: MemoryEntry[] = [];
+
+  if (ctx.formatting_style || ctx.preferred_urgency_language) {
+    entries.push({
+      id: "mem_live_style",
+      category: "personal",
+      title: "Communication Style Preferences",
+      content: `Formatting: ${ctx.formatting_style}. Urgency language: ${ctx.preferred_urgency_language}.`,
+      last_updated: "live",
+      use_count: 0,
+      confidence: 98,
+    });
+  }
+
+  if (ctx.working_hours_start && ctx.working_hours_end) {
+    const blocks = ctx.deep_work_blocks.length
+      ? `Deep work blocks: ${ctx.deep_work_blocks.join(", ")}.`
+      : "";
+    entries.push({
+      id: "mem_live_hours",
+      category: "personal",
+      title: "Energy & Focus Cycles",
+      content: `Working hours: ${ctx.working_hours_start}–${ctx.working_hours_end}. ${blocks}`,
+      last_updated: "live",
+      use_count: 0,
+      confidence: 95,
+    });
+  }
+
+  if (ctx.known_triggers.length > 0) {
+    entries.push({
+      id: "mem_live_triggers",
+      category: "personal",
+      title: "Known Stress Triggers",
+      content: ctx.known_triggers.join(", "),
+      last_updated: "live",
+      use_count: 0,
+      confidence: 89,
+    });
+  }
+
+  return entries;
+}
+
+function mapCorporateContextToEntries(ctx: Awaited<ReturnType<typeof getCorporateContext>>): MemoryEntry[] {
+  const entries: MemoryEntry[] = [];
+
+  if (ctx.relevant_docs.length > 0) {
+    entries.push({
+      id: "mem_live_corp_docs",
+      category: "corporate",
+      title: "Relevant Corporate Documents",
+      content: ctx.relevant_docs.slice(0, 4).join(" • "),
+      last_updated: "live",
+      use_count: 0,
+      confidence: 93,
+    });
+  }
+
+  if (Object.keys(ctx.jargon_decoded).length > 0) {
+    const decoded = Object.entries(ctx.jargon_decoded)
+      .slice(0, 3)
+      .map(([k, v]) => `"${k}" → ${v}`)
+      .join("; ");
+    entries.push({
+      id: "mem_live_jargon",
+      category: "corporate",
+      title: "Corporate Jargon Decoded",
+      content: decoded,
+      last_updated: "live",
+      use_count: 0,
+      confidence: 97,
+    });
+  }
+
+  if (ctx.relevant_projects.length > 0) {
+    entries.push({
+      id: "mem_live_projects",
+      category: "corporate",
+      title: "Active Projects",
+      content: ctx.relevant_projects.slice(0, 5).join(", "),
+      last_updated: "live",
+      use_count: 0,
+      confidence: 92,
+    });
+  }
+
+  return entries;
+}
+
 function CognitiveMemory() {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<"all" | "personal" | "corporate">("all");
   const [memories, setMemories] = useState<MemoryEntry[]>(initialMemories);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLive, setIsLive] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const userId = user?.id ?? "usr_clarity_101";
+
+    async function loadFromMemoryService() {
+      setIsLoading(true);
+      try {
+        const [userCtx, corpCtx] = await Promise.all([
+          getUserContext(userId),
+          getCorporateContext(),
+        ]);
+
+        if (cancelled) return;
+
+        const userEntries = mapUserContextToEntries(userCtx);
+        const corpEntries = mapCorporateContextToEntries(corpCtx);
+        const liveEntries = [...userEntries, ...corpEntries];
+
+        if (liveEntries.length > 0) {
+          setMemories(liveEntries);
+          setIsLive(true);
+        }
+      } catch (err) {
+        console.warn("Memory service unreachable — using fallback data:", err);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    loadFromMemoryService();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   const filteredMemories = useMemo(() => {
     return memories.filter((m) => {
@@ -46,8 +175,14 @@ function CognitiveMemory() {
         </div>
 
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground font-mono bg-card border border-border px-3.5 py-2 rounded-xl">
-          <Database className="h-4 w-4 text-mint" />
-          Qdrant DB: 6 Active Bindings
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 text-mint animate-spin" />
+          ) : (
+            <Database className="h-4 w-4 text-mint" />
+          )}
+          {isLoading
+            ? "Loading Qdrant bindings..."
+            : `Qdrant DB: ${memories.length} Active Bindings${isLive ? " (live)" : " (fallback)"}`}
         </div>
       </header>
 
@@ -99,8 +234,8 @@ function CognitiveMemory() {
                 <div className="flex items-center justify-between">
                   <span className={[
                     "px-2.5 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 border",
-                    isPersonal 
-                      ? "bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-900/30" 
+                    isPersonal
+                      ? "bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-900/30"
                       : "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30"
                   ].join(" ")}>
                     {isPersonal ? <User className="h-3 w-3" /> : <Building className="h-3 w-3" />}
@@ -125,9 +260,11 @@ function CognitiveMemory() {
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" /> Updated {entry.last_updated}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <RefreshCw className="h-3 w-3 text-mint/80" /> Referenced {entry.use_count}x
-                  </span>
+                  {entry.use_count > 0 && (
+                    <span className="flex items-center gap-1">
+                      <RefreshCw className="h-3 w-3 text-mint/80" /> Referenced {entry.use_count}x
+                    </span>
+                  )}
                 </div>
               </div>
             );

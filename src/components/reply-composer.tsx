@@ -1,6 +1,7 @@
 import { useState, type ChangeEvent } from "react";
 import { Sparkles, MessageSquare, Send, Check, AlertCircle, Loader2 } from "lucide-react";
 import { API_BASE_URL, generateReplyDrafts, type ReplyDraft } from "../lib/api";
+import { SLACK_MCP_URL } from "../lib/integrations";
 
 interface ReplyComposerProps {
   messageId: string;
@@ -100,7 +101,7 @@ export function ReplyComposer({
       // Fetch channelId if not explicitly provided (e.g. from config or a default channel)
       const targetChannel = channelId || "C0BDDSACL3D";
 
-      const response = await fetch("http://localhost:3000/reply", {
+      const response = await fetch(`${SLACK_MCP_URL}/reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

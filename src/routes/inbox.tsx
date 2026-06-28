@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { type ClarityMessage } from "../lib/mock-data";
+import { type ClarityMessage, initialMessages } from "../lib/mock-data";
 import { 
   Mail, 
   MessageSquare, 
@@ -45,37 +45,39 @@ function InboxPage() {
         .select("*")
         .order("timestamp", { ascending: false });
 
-      if (data) {
-        const mappedMsgs: ClarityMessage[] = data.map((m: any) => ({
-          message_id: m.message_id,
-          sender_name: m.sender_name,
-          sender_role: m.sender_role,
-          timestamp: m.timestamp,
-          original_text: m.original_text,
-          source: m.source,
-          importance: m.importance,
-          ambiguity: m.ambiguity,
-          agent_assigned: m.agent_assigned,
-          translation_status: m.translation_status,
-          translated_bullet_points: {
-            action: m.action,
-            complexity: m.complexity || "Medium",
-            expected_duration: m.expected_duration || "30 mins",
-            steps: m.steps || [],
-          },
-          suggested_start_time: m.suggested_start_time,
-          suggested_end_time: m.suggested_end_time,
-          fidelity_rating: m.fidelity_rating || 3,
-          acknowledged: m.acknowledged,
-          reasoning: m.reasoning,
-          debate_id: m.debate_id
-        }));
-        setMessages(mappedMsgs);
-        
-        // Auto select first message if nothing is selected
-        if (mappedMsgs.length > 0 && !selectedMessageId) {
-          setSelectedMessageId(mappedMsgs[0].message_id);
-        }
+      const rows = data ?? [];
+      const mappedMsgs: ClarityMessage[] = rows.map((m: any) => ({
+        message_id: m.message_id,
+        sender_name: m.sender_name,
+        sender_role: m.sender_role,
+        timestamp: m.timestamp,
+        original_text: m.original_text,
+        source: m.source,
+        importance: m.importance,
+        ambiguity: m.ambiguity,
+        agent_assigned: m.agent_assigned,
+        translation_status: m.translation_status,
+        translated_bullet_points: {
+          action: m.action,
+          complexity: m.complexity || "Medium",
+          expected_duration: m.expected_duration || "30 mins",
+          steps: m.steps || [],
+        },
+        suggested_start_time: m.suggested_start_time,
+        suggested_end_time: m.suggested_end_time,
+        fidelity_rating: m.fidelity_rating || 3,
+        acknowledged: m.acknowledged,
+        reasoning: m.reasoning,
+        debate_id: m.debate_id,
+      }));
+
+      // Fall back to demo messages when the table is empty (no messages
+      // have been processed yet via /api/v1/process).
+      const display = mappedMsgs.length > 0 ? mappedMsgs : initialMessages;
+      setMessages(display);
+
+      if (!selectedMessageId) {
+        setSelectedMessageId(display[0]?.message_id ?? "");
       }
     } catch (error) {
       console.error("Error fetching inbox from Supabase: ", error);

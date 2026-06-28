@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { SlidersHorizontal, Sparkles, Check, Info, Bell, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { API_BASE_URL } from "../lib/api";
 
 export const Route = createFileRoute("/preferences")({
   head: () => ({
@@ -86,7 +87,7 @@ function PreferencesPage() {
     setIsPreviewLoading(true);
     setPreviewOutput("");
     try {
-      const response = await fetch("http://localhost:8000/api/v1/synthesis/preview", {
+      const response = await fetch(`${API_BASE_URL}/api/v1/synthesis/preview`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

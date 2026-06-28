@@ -75,12 +75,16 @@ export async function disconnectIntegration(userId: string, service: Integration
   await upsertIntegrationStatus(userId, service, false, [], {});
 }
 
-// ── Slack MCP liveness check ──────────────────────────────────────────────────
+// ── MCP server base URLs (override via VITE_*_MCP_URL in .env) ───────────────
 
-const SLACK_MCP_URL = 'http://localhost:3000';
-const GMAIL_MCP_URL = 'http://localhost:3001';
-const CALENDAR_MCP_URL = 'http://localhost:3002';
-const WHATSAPP_MCP_URL = 'http://localhost:3003';
+export const SLACK_MCP_URL =
+  (import.meta.env.VITE_SLACK_MCP_URL as string | undefined) ?? 'http://localhost:3000';
+export const GMAIL_MCP_URL =
+  (import.meta.env.VITE_GMAIL_MCP_URL as string | undefined) ?? 'http://localhost:3001';
+export const CALENDAR_MCP_URL =
+  (import.meta.env.VITE_CALENDAR_MCP_URL as string | undefined) ?? 'http://localhost:3002';
+export const WHATSAPP_MCP_URL =
+  (import.meta.env.VITE_WHATSAPP_MCP_URL as string | undefined) ?? 'http://localhost:3003';
 
 export async function checkWhatsAppMCPConnected(): Promise<boolean> {
   try {

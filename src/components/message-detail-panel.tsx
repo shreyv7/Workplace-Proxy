@@ -44,6 +44,14 @@ export function MessageDetailPanel({
 
   const { action, complexity, expected_duration, steps } = message.translated_bullet_points;
 
+  // Rows written by the old engine.py emergency path still carry this exact string
+  // in Supabase. Swap it for a meaningful message so it never surfaces to the user.
+  const STALE_FAILURE_STRING = "Translation pipeline failed — manual review required.";
+  const displayReasoning =
+    message.reasoning === STALE_FAILURE_STRING
+      ? "An error occurred during automated processing. The action above is a best-effort estimate — please review the original message manually."
+      : message.reasoning;
+
   useEffect(() => {
     if (!showDebateTrail) return;
 
@@ -226,13 +234,13 @@ export function MessageDetailPanel({
           )}
 
           {/* Reasoning */}
-          {message.reasoning && (
+          {displayReasoning && (
             <div className="bg-secondary/25 p-4 rounded-xl border border-border/40 space-y-1">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                 Decoded Context & Rationale
               </span>
               <p className="text-xs text-muted-foreground leading-relaxed font-sans">
-                {message.reasoning}
+                {displayReasoning}
               </p>
             </div>
           )}

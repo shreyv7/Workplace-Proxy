@@ -135,22 +135,22 @@
 .dark {
   --background: oklch(0.1 0.02 254);
   --foreground: oklch(0.95 0.015 244);
-  --card: oklch(0.14 0.025 254 / 85%);
+  --card: oklch(0.16 0.025 254);
   --card-foreground: oklch(0.95 0.015 244);
-  --popover: oklch(0.14 0.025 254);
+  --popover: oklch(0.16 0.025 254);
   --popover-foreground: oklch(0.95 0.015 244);
   --primary: oklch(0.82 0.12 200);
   --primary-foreground: oklch(0.1 0.02 254);
-  --secondary: oklch(0.18 0.03 254);
+  --secondary: oklch(0.22 0.03 254);
   --secondary-foreground: oklch(0.95 0.015 244);
-  --muted: oklch(0.18 0.03 254);
-  --muted-foreground: oklch(0.75 0.03 244);
+  --muted: oklch(0.20 0.03 254);
+  --muted-foreground: oklch(0.82 0.025 244);
   --accent: oklch(0.22 0.08 170);
   --accent-foreground: oklch(0.95 0.015 244);
   --destructive: oklch(0.55 0.18 20);
   --destructive-foreground: oklch(0.95 0.015 244);
-  --border: oklch(0.24 0.03 254);
-  --input: oklch(0.24 0.03 254);
+  --border: oklch(0.30 0.03 254);
+  --input: oklch(0.30 0.03 254);
   --ring: oklch(0.62 0.16 200);
   --mint: oklch(0.78 0.18 168);
   --mint-soft: oklch(0.18 0.06 168);
@@ -330,7 +330,7 @@
   --muted-foreground: oklch(0.18 0.03 250);
   font-weight: 500;
 }
-.dark .high-contrast {
+.dark.high-contrast {
   --border: oklch(0.78 0.015 244);
   --muted-foreground: oklch(0.92 0.015 244);
 }

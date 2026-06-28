@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { API_BASE_URL } from "../lib/api";
 import { TrendingUp, Activity, BarChart2, Calendar, Target, Clock, ShieldCheck } from "lucide-react";
 import { KpiCards } from "../components/kpi-cards";
 
@@ -28,7 +29,7 @@ function InsightsPage() {
     async function loadTelemetry() {
       setIsLoading(true);
       try {
-        const response = await fetch(`http://localhost:8000/api/v1/telemetry?range=${activeTab}`);
+        const response = await fetch(`${API_BASE_URL}/api/v1/telemetry?range=${activeTab}`);
         if (!response.ok) throw new Error("Backend response not ok");
         const json = await response.json();
         

@@ -133,6 +133,16 @@ async function handleBackendResponse(msgId: string, result: ProcessResponse) {
     endTime = endDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   }
 
+  // When the backend pipeline threw an uncaught exception, engine.py calls
+  // _emergency_translation() and appends a "Pipeline error: ..." warning.
+  // Use that signal to surface a meaningful message rather than the generic fallback.
+  const hasPipelineError = result.warnings?.some((w: string) =>
+    w.startsWith("Pipeline error:"),
+  );
+  const reasoning = hasPipelineError
+    ? "An error occurred during automated translation. The action above is a best-effort estimate — please review the original message."
+    : task.decoded_subtext || slot?.rationale || "Consensus aligned successfully.";
+
   // Update messages in Supabase
   const updatedMsg = {
     translation_status: "completed",
@@ -145,7 +155,7 @@ async function handleBackendResponse(msgId: string, result: ProcessResponse) {
     steps: task.action_items.map((item) => item.description),
     suggested_start_time: startTime,
     suggested_end_time: endTime,
-    reasoning: task.decoded_subtext || slot?.rationale || "Consensus aligned successfully.",
+    reasoning,
     debate_id: result.request_id || `deb_${msgId}`,
   };
 

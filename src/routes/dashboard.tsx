@@ -146,14 +146,14 @@ function DailyClarity() {
     }
   };
 
-  // Helper formatting for simple clock time (HH:MM)
+  // Helper formatting for simple clock time (HH:MM) in the user's local timezone
   const formatTime = (isoString: string) => {
     try {
-      const parts = isoString.split("T");
-      if (parts.length > 1) {
-        return parts[1].substring(0, 5);
-      }
-      return isoString.substring(0, 5);
+      return new Date(isoString).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
     } catch {
       return isoString;
     }
