@@ -80,23 +80,63 @@ class GoogleBackend(LLMBackend):
     ) -> None:
         from google import genai
         from google.genai import types
-        self._client = genai.Client(api_key=api_key)
+        
+        # Parse comma-separated list of keys for rotation
+        self._api_keys = [k.strip() for k in api_key.split(",") if k.strip()]
+        if not self._api_keys:
+            self._api_keys = [api_key]
+            
+        self._current_key_idx = 0
         self._model = model
         self._types = types
         self._retry_count = retry_count
         self._retry_delay = retry_delay_seconds
+        
+        # Initialize client with first key
+        self._reinit_client()
+
+    def _reinit_client(self) -> None:
+        from google import genai
+        key = self._api_keys[self._current_key_idx]
+        self._client = genai.Client(api_key=key)
+
+    def _rotate_key(self) -> None:
+        self._current_key_idx = (self._current_key_idx + 1) % len(self._api_keys)
+        self._reinit_client()
 
     def _call_with_retry(self, fn: Any, *args: Any, **kwargs: Any) -> Any:
-        """Execute fn(*args, **kwargs), retrying on failure with exponential backoff."""
+        """Execute fn(*args, **kwargs), retrying on failure. Rotates to next key on 429/503/UNAVAILABLE errors."""
         last_exc: Exception | None = None
-        for attempt in range(self._retry_count + 1):
+        total_attempts = len(self._api_keys) * (self._retry_count + 1)
+        
+        for attempt in range(total_attempts):
             try:
                 return fn(*args, **kwargs)
             except Exception as exc:
                 last_exc = exc
+                err_msg = str(exc)
+                
+                # Check for 429 Rate Limit/Quota or 503 Service Unavailable/Overload
+                should_rotate = (
+                    "429" in err_msg or 
+                    "RESOURCE_EXHAUSTED" in err_msg or 
+                    "503" in err_msg or 
+                    "UNAVAILABLE" in err_msg
+                )
+                
+                if should_rotate and len(self._api_keys) > 1:
+                    # Rotate the API key and reinitialize the client
+                    self._rotate_key()
+                    # Small buffer delay before retrying with new key
+                    time.sleep(0.5)
+                    continue
+                
+                # Standard backoff retry for other errors or if only 1 key
                 if attempt < self._retry_count:
                     delay = self._retry_delay * (2 ** attempt)
                     time.sleep(delay)
+                else:
+                    break
         raise last_exc  # type: ignore[misc]
 
     def _generate_text(self, prompt: str, system_prompt: str, temperature: float) -> str:

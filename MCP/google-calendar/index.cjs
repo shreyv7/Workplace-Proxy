@@ -141,8 +141,8 @@ app.get("/oauth2callback", async (req, res) => {
   try {
     const { tokens } = await oauth2Client.getToken(code);
     saveToken(tokens);
-    // Redirect user back to the frontend integration page
-    res.redirect("http://localhost:5173/integrations?integration=calendar&status=success");
+    const frontendUrl = process.env.PUBLIC_FRONTEND_URL || "http://localhost:5173";
+    res.redirect(`${frontendUrl}/integrations?integration=calendar&status=success`);
   } catch (err) {
     console.error("Error exchanging OAuth code:", err);
     res.status(500).send("Failed to retrieve access token. " + err.message);

@@ -26,6 +26,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.provider_token) {
+        sessionStorage.setItem("google_provider_token", session.provider_token);
+      }
 
       if (!session) {
         // Fall back to demo session stored by loginMock()
@@ -51,6 +54,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session) {
         // Real session established — clear any leftover demo session
         localStorage.removeItem("mock_user");
+        if (session.provider_token) {
+          sessionStorage.setItem("google_provider_token", session.provider_token);
+        }
       }
       setIsLoading(false);
     });

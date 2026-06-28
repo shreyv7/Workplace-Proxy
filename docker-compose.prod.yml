@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.18.2
+    container_name: workplace-proxy-qdrant-prod
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    restart: unless-stopped
+
+  memory-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: workplace-proxy-memory-service-prod
+    command: python -m uvicorn memory_service.main:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./backend:/app
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_URL=
+    depends_on:
+      - qdrant
+    restart: unless-stopped
+
+  calendar-mcp:
+    build:
+      context: ./calendar-mcp-server
+      dockerfile: Dockerfile
+    container_name: workplace-proxy-calendar-mcp-prod
+    ports:
+      - "3002:3002"
+    restart: unless-stopped
+
+  gmail-mcp:
+    build:
+      context: ./gmail-mcp-server
+      dockerfile: Dockerfile
+    container_name: workplace-proxy-gmail-mcp-prod
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+
+  slack-mcp:
+    build:
+      context: ./MCP/slack
+      dockerfile: Dockerfile
+    container_name: workplace-proxy-slack-mcp-prod
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  orchestrator:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: workplace-proxy-orchestrator-prod
+    command: python -m uvicorn orchestrator.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_URL=
+      - MEMORY_SERVICE_URL=http://memory-service:8001
+      - MCP_CALENDAR_URL=http://calendar-mcp:3002
+      - MCP_EMAIL_URL=http://gmail-mcp:3001
+      - MCP_SLACK_URL=http://slack-mcp:3000
+    depends_on:
+      - memory-service
+      - calendar-mcp
+      - gmail-mcp
+      - slack-mcp
+    restart: unless-stopped
+
+volumes:
+  qdrant_storage:

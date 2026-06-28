@@ -23,7 +23,7 @@ export async function sendRawMessageToSwarm(payload: InboundPayload) {
     data: { session },
   } = await supabase.auth.getSession();
   const userId = session?.user?.id ?? "usr_clarity_101";
-  const googleAccessToken = session?.provider_token ?? undefined;
+  const googleAccessToken = session?.provider_token ?? (typeof window !== "undefined" ? sessionStorage.getItem("google_provider_token") : null) ?? undefined;
 
   // Format for the Python ProcessRequest schema
   const requestBody: Record<string, unknown> = {

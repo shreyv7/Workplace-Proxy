@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TestUiGcpRouteImport } from './routes/test-ui-gcp'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PreferencesRouteImport } from './routes/preferences'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
@@ -21,11 +20,6 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as IndexRouteImport } from './routes/index'
 
-const TestUiGcpRoute = TestUiGcpRouteImport.update({
-  id: '/test-ui-gcp',
-  path: '/test-ui-gcp',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -88,7 +82,6 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/preferences': typeof PreferencesRoute
   '/settings': typeof SettingsRoute
-  '/test-ui-gcp': typeof TestUiGcpRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,7 +94,6 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/preferences': typeof PreferencesRoute
   '/settings': typeof SettingsRoute
-  '/test-ui-gcp': typeof TestUiGcpRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -115,7 +107,6 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/preferences': typeof PreferencesRoute
   '/settings': typeof SettingsRoute
-  '/test-ui-gcp': typeof TestUiGcpRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -130,7 +121,6 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/preferences'
     | '/settings'
-    | '/test-ui-gcp'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -143,7 +133,6 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/preferences'
     | '/settings'
-    | '/test-ui-gcp'
   id:
     | '__root__'
     | '/'
@@ -156,7 +145,6 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/preferences'
     | '/settings'
-    | '/test-ui-gcp'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -170,18 +158,10 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   PreferencesRoute: typeof PreferencesRoute
   SettingsRoute: typeof SettingsRoute
-  TestUiGcpRoute: typeof TestUiGcpRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/test-ui-gcp': {
-      id: '/test-ui-gcp'
-      path: '/test-ui-gcp'
-      fullPath: '/test-ui-gcp'
-      preLoaderRoute: typeof TestUiGcpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -266,7 +246,6 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   PreferencesRoute: PreferencesRoute,
   SettingsRoute: SettingsRoute,
-  TestUiGcpRoute: TestUiGcpRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -152,7 +152,7 @@ async function processInboundEmailMessage(msgId, sender, subject, body, gmailMsg
     }]);
 
     // 2. Call FastAPI backend orchestrator
-    const response = await fetch("http://localhost:8000/api/v1/process", {
+    const response = await fetch(`${process.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/v1/process`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -318,8 +318,8 @@ app.get("/oauth2callback", async (req, res) => {
   try {
     const { tokens } = await oauth2Client.getToken(code);
     saveToken(tokens);
-    // Redirect user back to the frontend integration page
-    res.redirect("http://localhost:5173/integrations?integration=email&status=success");
+    const frontendUrl = process.env.PUBLIC_FRONTEND_URL || "http://localhost:5173";
+    res.redirect(`${frontendUrl}/integrations?integration=email&status=success`);
   } catch (err) {
     console.error("Error exchanging OAuth code:", err);
     res.status(500).send("Failed to retrieve access token. " + err.message);

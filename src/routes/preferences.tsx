@@ -333,7 +333,7 @@ function PreferencesPage() {
                   "w-full py-3 rounded-xl font-bold text-xs shadow-xs cursor-pointer transition-all duration-200 text-center flex items-center justify-center gap-2",
                   isPreviewLoading 
                     ? "bg-secondary text-muted-foreground border border-border" 
-                    : "bg-mint-soft text-mint border border-mint/20 hover:bg-mint-soft/80"
+                    : "bg-lavender/10 text-lavender border border-lavender/20 hover:bg-lavender/15"
                 ].join(" ")}
               >
                 {isPreviewLoading ? (

@@ -96,10 +96,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — Role 2 calls us from localhost
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# CORS — Role 2 calls us from localhost or production origin
+import os
+cors_origins_str = os.getenv("CORS_ORIGINS", "")
+allowed_origins = [o.strip() for o in cors_origins_str.split(",") if o.strip()]
+if not allowed_origins or "*" in allowed_origins:
+    allowed_origins = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:8000",
@@ -107,7 +109,11 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:3002",
-    ],
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

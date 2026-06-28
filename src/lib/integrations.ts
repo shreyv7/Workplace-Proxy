@@ -191,6 +191,11 @@ export async function handleGoogleOAuthReturn(service: 'google_calendar' | 'gmai
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.provider_token) return false;
 
+  // Cache the provider token in sessionStorage
+  if (typeof window !== 'undefined') {
+    sessionStorage.setItem("google_provider_token", session.provider_token);
+  }
+
   const scopeMap: Record<string, string[]> = {
     google_calendar: ['calendar.readonly'],
     gmail:           ['gmail.readonly'],

@@ -197,7 +197,7 @@ async function processInboundSlackMessage(msgId, senderName, content, ts, channe
     }]);
 
     // 2. Call FastAPI backend orchestrator
-    const response = await fetch("http://localhost:8000/api/v1/process", {
+    const response = await fetch(`${process.env.VITE_BACKEND_URL || "http://localhost:8000"}/api/v1/process`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { type ClarityMessage, initialDebates } from "../lib/mock-data";
 import { ReplyComposer } from "./reply-composer";
-import { getDebugTranscript, type DebugTranscriptMessage } from "../lib/api";
+import { getDebugTranscript, type DebugTranscriptMessage, API_BASE_URL } from "../lib/api";
 import {
   Calendar,
   AlertCircle,
@@ -13,6 +13,7 @@ import {
   Scale,
   CheckCircle2,
   User,
+  Loader2,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -41,6 +42,121 @@ export function MessageDetailPanel({
   const [showDebateTrail, setShowDebateTrail] = useState(false);
   const [debateTranscript, setDebateTranscript] = useState<TranscriptStep[]>([]);
   const [loadingDebate, setLoadingDebate] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+
+  const handleReprocessMessage = async () => {
+    setIsParsing(true);
+    setParseError(null);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const userId = session?.user?.id ?? "usr_clarity_101";
+      const googleAccessToken = session?.provider_token ?? (typeof window !== "undefined" ? sessionStorage.getItem("google_provider_token") : null) ?? undefined;
+
+      const requestBody = {
+        message_id: message.message_id,
+        source: message.source,
+        sender_name: message.sender_name,
+        sender_role: message.sender_role || "External Contact",
+        content: message.original_text,
+        timestamp: new Date().toISOString(),
+        thread_context: [],
+        user_id: userId,
+        ...(googleAccessToken ? { google_access_token: googleAccessToken } : {}),
+      };
+
+      // 1. Mark as "processing" in Supabase so the UI displays loading state
+      await supabase.from("messages").update({
+        translation_status: "processing",
+        action: "Analyzing inbound signals...",
+        expected_duration: "Evaluating...",
+        steps: ["Parsing Gmail message"],
+        reasoning: "Debating consensus bounds with agent swarm...",
+      }).eq("message_id", message.message_id);
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/process`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Orchestrator returned ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      const task = result.translated_task;
+      const slot = result.calendar_slot;
+
+      let importance: "low" | "medium" | "high" = "medium";
+      if (task.urgency === "high" || task.urgency === "critical") importance = "high";
+      if (task.urgency === "low") importance = "low";
+
+      let startTime = "14:00";
+      let endTime = "14:30";
+      if (slot?.suggested_start) {
+        startTime = new Date(slot.suggested_start).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+      }
+      if (slot?.suggested_end) {
+        endTime = new Date(slot.suggested_end).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+      }
+
+      const hasPipelineError = result.warnings?.some((w: string) => w.startsWith("Pipeline error:"));
+      const reasoning = hasPipelineError
+        ? "An error occurred during automated translation. The action above is a best-effort estimate — please review the original message."
+        : task.decoded_subtext || slot?.rationale || "Consensus aligned successfully.";
+
+      const updatedMsg = {
+        translation_status: "completed",
+        importance: importance,
+        action: task.title,
+        complexity: task.urgency.charAt(0).toUpperCase() + task.urgency.slice(1),
+        expected_duration: slot ? `${slot.duration_minutes} mins` : "30 mins",
+        steps: task.action_items.map((item: any) => item.description),
+        suggested_start_time: startTime,
+        suggested_end_time: endTime,
+        reasoning,
+        debate_id: result.request_id || `deb_${message.message_id}`,
+      };
+
+      await supabase.from("messages").update(updatedMsg).eq("message_id", message.message_id);
+
+      if (slot) {
+        await supabase.from("calendar_blocks").delete().eq("id", `task_${message.message_id}`);
+        await supabase.from("calendar_blocks").insert([
+          {
+            id: `task_${message.message_id}`,
+            start: startTime,
+            end: endTime,
+            title: task.title,
+            type: "task",
+            source_message_id: message.message_id,
+            acknowledged: false,
+            agent_generated: true,
+            confidence: Math.round(result.confidence_score * 100),
+            reason: slot.rationale,
+          },
+        ]);
+      }
+    } catch (err: any) {
+      console.error("Swarm reprocess failed:", err);
+      setParseError(err.message || "Failed to contact swarm.");
+      await supabase.from("messages").update({
+        translation_status: "completed",
+        action: `Action Required: Review Email from ${message.sender_name}`,
+        reasoning: `Swarm processing offline: ${err.message || "fetch failed"}`,
+        expected_duration: "Evaluating...",
+        steps: ["Parsing Gmail message"],
+      }).eq("message_id", message.message_id);
+    } finally {
+      setIsParsing(false);
+    }
+  };
 
   const { action, complexity, expected_duration, steps } = message.translated_bullet_points;
 
@@ -221,12 +337,50 @@ export function MessageDetailPanel({
                 {steps.map((step, idx) => (
                   <div
                     key={idx}
-                    className="flex items-start gap-2.5 text-xs text-foreground/95 bg-secondary/35 p-3 rounded-xl border border-border/40"
+                    className="flex flex-col gap-2.5 text-xs text-foreground/95 bg-secondary/35 p-3 rounded-xl border border-border/40 w-full"
                   >
-                    <div className="h-4.5 w-4.5 rounded-md border border-border bg-card flex items-center justify-center shrink-0 mt-0.5">
-                      <span className="text-[9px] font-bold text-muted-foreground">{idx + 1}</span>
-                    </div>
-                    <span className="leading-relaxed font-sans">{step}</span>
+                    {step.toLowerCase().includes("parsing") ? (
+                      <div className="w-full space-y-2">
+                        <div className="flex items-start gap-2.5">
+                          <div className="h-4.5 w-4.5 rounded-md border border-border bg-card flex items-center justify-center shrink-0 mt-0.5">
+                            <span className="text-[9px] font-bold text-muted-foreground">{idx + 1}</span>
+                          </div>
+                          <span className="leading-relaxed font-sans text-muted-foreground italic">
+                            Ingestion completed, but swarm consensus processing is pending.
+                          </span>
+                        </div>
+                        
+                        <button
+                          onClick={handleReprocessMessage}
+                          disabled={isParsing}
+                          className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 text-white font-bold text-xs py-2.5 px-4 transition-all shadow-md cursor-pointer disabled:opacity-50"
+                        >
+                          {isParsing ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Running Agent Swarm Consensus...
+                            </>
+                          ) : (
+                            <>
+                              <Bot className="h-4 w-4" />
+                              Parse Gmail message
+                            </>
+                          )}
+                        </button>
+                        {parseError && (
+                          <p className="text-[10px] text-rose-500 font-semibold text-center mt-1">
+                            ⚠️ {parseError}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-2.5 w-full">
+                        <div className="h-4.5 w-4.5 rounded-md border border-border bg-card flex items-center justify-center shrink-0 mt-0.5">
+                          <span className="text-[9px] font-bold text-muted-foreground">{idx + 1}</span>
+                        </div>
+                        <span className="leading-relaxed font-sans">{step}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

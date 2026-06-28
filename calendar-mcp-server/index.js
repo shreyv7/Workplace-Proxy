@@ -87,6 +87,84 @@ app.get('/health', (_req, res) => {
  * Returns all calendar blocks for today.
  * Tries the Google Calendar API when an access token is available; falls back to demo data.
  */
+function determineBlockType(ev) {
+  // 0. Identify Google Calendar native Tasks and Focus blocks
+  if (ev.eventType === 'task') {
+    return 'shallow_work';
+  }
+  if (ev.eventType === 'focusTime') {
+    return 'deep_work';
+  }
+
+  const summary = (ev.summary || '').toLowerCase();
+  
+  // 1. Break / meal blocks
+  if (summary.includes('lunch') || summary.includes('dinner') || summary.includes('breakfast') || summary.includes('break')) {
+    return 'free';
+  }
+
+  // 1.5 Special check: admin routine tasks containing 'meeting' keywords should not be meeting tags
+  if (summary.includes('check for meetings') || summary.includes('check meetings') || summary.includes('verify meetings')) {
+    return 'shallow_work';
+  }
+
+  // 2. Check for other attendees (definitely a meeting)
+  const otherAttendees = (ev.attendees || []).filter(a => !a.self);
+  if (otherAttendees.length > 0) {
+    return 'meeting';
+  }
+
+  // 3. Typical meeting keywords
+  const meetingKeywords = ['meeting', 'sync', 'standup', 'alignment', '1:1', '1on1', 'call', 'discussion', 'align', 'review', 'huddle', 'catchup', 'catch up'];
+  if (meetingKeywords.some(kw => summary.includes(kw))) {
+    return 'meeting';
+  }
+
+  // 4. Calculate duration in hours
+  let durationHours = 0;
+  if (ev.start && ev.end) {
+    const startStr = ev.start.dateTime || ev.start.date;
+    const endStr = ev.end.dateTime || ev.end.date;
+    if (startStr && endStr) {
+      const startMs = new Date(startStr).getTime();
+      const endMs = new Date(endStr).getTime();
+      durationHours = (endMs - startMs) / (1000 * 60 * 60);
+    }
+  }
+
+  // 5. Rule: Anything with a 2 hours or more interval isn't shallow (it's deep work)
+  if (durationHours >= 2) {
+    return 'deep_work';
+  }
+
+  // 6. Deep work / focus indicators for shorter durations
+  if (
+    summary.includes('deep work') || 
+    summary.includes('focus block') || 
+    summary.includes('quiet block') || 
+    summary.includes('deep-work') ||
+    summary.includes('architecture review')
+  ) {
+    return 'deep_work';
+  }
+
+  // 7. Shallow work / tasks
+  if (
+    summary.includes('shallow work') || 
+    summary.includes('admin') || 
+    summary.includes('email') || 
+    summary.includes('task') || 
+    summary.includes('project work') || 
+    summary.includes('internship work') || 
+    summary.includes('check for meetings')
+  ) {
+    return 'shallow_work';
+  }
+
+  // Default to shallow_work for personal entries
+  return 'shallow_work';
+}
+
 app.get('/calendar/today', async (req, res) => {
   const token = resolveToken(req);
 
@@ -108,7 +186,7 @@ app.get('/calendar/today', async (req, res) => {
       const blocks = (resp.data.items || []).map(ev => ({
         start:      ev.start?.dateTime || ev.start?.date || null,
         end:        ev.end?.dateTime   || ev.end?.date   || null,
-        block_type: 'meeting',
+        block_type: determineBlockType(ev),
         is_available: false,
         title: ev.summary || 'Busy',
       }));

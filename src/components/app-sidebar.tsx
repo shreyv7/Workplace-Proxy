@@ -47,7 +47,6 @@ const navSections = [
       { to: "/memory", label: "Cognitive Memory", icon: Brain },
       { to: "/agents", label: "Agent Swarm", icon: Bot },
       { to: "/settings", label: "Platform Settings", icon: Settings },
-      { to: "/test-ui-gcp", label: "GCP Integration Test", icon: FlaskConical },
     ],
   },
 ];

@@ -136,7 +136,7 @@ app.get('/oauth/authorize', (req, res) => {
     return res.status(503).json({ error: 'SLACK_CLIENT_ID not configured. Set it in slack-mcp-server/.env' });
   }
 
-  const redirectUri  = `http://localhost:${PORT}/oauth/callback`;
+  const redirectUri  = process.env.PUBLIC_SLACK_CALLBACK_URL || `http://localhost:${PORT}/oauth/callback`;
   const scopes       = 'channels:history,channels:read,chat:write,users:read';
   const state        = req.query.return_to || 'integrations';
 
@@ -151,22 +151,23 @@ app.get('/oauth/authorize', (req, res) => {
  */
 app.get('/oauth/callback', async (req, res) => {
   const { code, error: oauthError } = req.query;
+  const frontendUrl = process.env.PUBLIC_FRONTEND_URL || "http://localhost:5173";
 
   if (oauthError) {
     console.error('[Slack MCP] OAuth error from Slack:', oauthError);
-    return res.redirect(`http://localhost:5173/integrations?slack_error=${encodeURIComponent(oauthError)}`);
+    return res.redirect(`${frontendUrl}/integrations?slack_error=${encodeURIComponent(oauthError)}`);
   }
 
   if (!code) {
-    return res.redirect('http://localhost:5173/integrations?slack_error=missing_code');
+    return res.redirect(`${frontendUrl}/integrations?slack_error=missing_code`);
   }
 
   const clientId     = process.env.SLACK_CLIENT_ID;
   const clientSecret = process.env.SLACK_CLIENT_SECRET;
-  const redirectUri  = `http://localhost:${PORT}/oauth/callback`;
+  const redirectUri  = process.env.PUBLIC_SLACK_CALLBACK_URL || `http://localhost:${PORT}/oauth/callback`;
 
   if (!clientId || !clientSecret) {
-    return res.redirect('http://localhost:5173/integrations?slack_error=server_not_configured');
+    return res.redirect(`${frontendUrl}/integrations?slack_error=server_not_configured`);
   }
 
   try {
@@ -182,10 +183,10 @@ app.get('/oauth/callback', async (req, res) => {
     console.log('[Slack MCP] OAuth complete — bot token stored');
 
     // Redirect back to the frontend integrations page with success indicator
-    res.redirect('http://localhost:5173/integrations?slack_connected=true');
+    res.redirect(`${frontendUrl}/integrations?slack_connected=true`);
   } catch (err) {
     console.error('[Slack MCP] token exchange failed:', err.message);
-    res.redirect(`http://localhost:5173/integrations?slack_error=${encodeURIComponent(err.message)}`);
+    res.redirect(`${frontendUrl}/integrations?slack_error=${encodeURIComponent(err.message)}`);
   }
 });
 

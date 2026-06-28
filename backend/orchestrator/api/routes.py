@@ -989,7 +989,7 @@ async def preview_synthesis(
     try:
         # Check if the API key is the default placeholder or invalid
         backend = engine._translator._backend
-        if backend._model == "gemini-2.0-flash" and backend._client.api_key == "your-google-api-key-here":
+        if backend._model == "gemini-2.0-flash" and get_settings().google_api_key == "your-google-api-key-here":
             raise ValueError("API key is not configured. Please edit backend/.env")
 
         # Build standard translation instructions prompt mapping structure preferences

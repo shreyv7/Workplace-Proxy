@@ -40,6 +40,36 @@ export const Route = createFileRoute("/dashboard")({
   component: DailyClarity,
 });
 
+const getBlockStyles = (blockType: string) => {
+  switch (blockType) {
+    case "meeting":
+      return {
+        stripe: "bg-indigo-500",
+        tag: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25 px-2 py-0.5 rounded text-[8px] font-mono uppercase font-bold",
+      };
+    case "deep_work":
+      return {
+        stripe: "bg-sky-500",
+        tag: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/25 px-2 py-0.5 rounded text-[8px] font-mono uppercase font-bold",
+      };
+    case "shallow_work":
+      return {
+        stripe: "bg-amber-500",
+        tag: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25 px-2 py-0.5 rounded text-[8px] font-mono uppercase font-bold",
+      };
+    case "free":
+      return {
+        stripe: "bg-emerald-500",
+        tag: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 px-2 py-0.5 rounded text-[8px] font-mono uppercase font-bold",
+      };
+    default:
+      return {
+        stripe: "bg-muted",
+        tag: "bg-muted/10 text-muted-foreground border border-muted/20 px-2 py-0.5 rounded text-[8px] font-mono uppercase font-bold",
+      };
+  }
+};
+
 function DailyClarity() {
   const { user } = useAuth();
   const userId = user?.id || "mock_user";
@@ -72,7 +102,7 @@ function DailyClarity() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      const googleToken = session?.provider_token ?? undefined;
+      const googleToken = session?.provider_token ?? (typeof window !== "undefined" ? sessionStorage.getItem("google_provider_token") : null) ?? undefined;
       const res = await getDailyClarity(date, userId, googleToken);
       setData(res);
       setNotes(res.notes || "");
@@ -263,7 +293,7 @@ function DailyClarity() {
                         <div
                           className={[
                             "w-1 h-full absolute left-0 top-0 rounded-l-2xl",
-                            isMeeting ? "bg-lavender" : "bg-mint",
+                            getBlockStyles(block.block_type).stripe,
                           ].join(" ")}
                         />
 
@@ -277,12 +307,7 @@ function DailyClarity() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-xs font-bold text-foreground truncate">{block.title}</h3>
-                            <span
-                              className={[
-                                "px-1.5 py-0.5 rounded text-[8px] font-mono uppercase font-bold",
-                                isMeeting ? "bg-lavender/10 text-lavender" : "bg-mint/10 text-mint",
-                              ].join(" ")}
-                            >
+                            <span className={getBlockStyles(block.block_type).tag}>
                               {block.block_type.replace("_", " ")}
                             </span>
                           </div>

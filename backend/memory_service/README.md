@@ -6,7 +6,7 @@ This is the Qdrant-backed semantic search memory service built for Role 3 (Memor
 
 - **FastAPI service** running on port `8001`.
 - **In-memory Qdrant instance** requires zero Docker setup for development/hackathon simplicity.
-- **Robust Fallback Embeddings**: If a `GOOGLE_API_KEY` is not present, it gracefully degrades to a deterministic hash-based embedding. This generates consistent 768-dimensional vectors allowing the entire search codebase to function without key dependencies.
+- **Gemini Embeddings + Robust Fallback**: Uses Google's `gemini-embedding-2` model with `768` output dimensions when a `GOOGLE_API_KEY` is present, and gracefully degrades to a deterministic hash-based embedding otherwise.
 - **Auto-seeding**: Auto-populates corporate context and user preference profiles on startup.
 
 ## API Endpoints

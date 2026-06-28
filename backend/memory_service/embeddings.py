@@ -1,7 +1,7 @@
 """Embedding helper for Role 3 memory service.
 
 Supports two modes:
-1. Google Generative AI embeddings (text-embedding-004) — when GOOGLE_API_KEY is set
+1. Google Generative AI embeddings (gemini-embedding-2) — when GOOGLE_API_KEY is set
 2. Deterministic hash-based embeddings — fallback when no API key is available
 
 Both produce vectors of the same dimensionality (768) so Qdrant collections
@@ -15,24 +15,26 @@ from __future__ import annotations
 
 import hashlib
 import os
-import struct
-from functools import lru_cache
 
 EMBEDDING_DIM = 768
+GOOGLE_EMBEDDING_MODEL = "gemini-embedding-2"
 
 # ── Try loading Google GenAI ─────────────────────────────────────────────────
 
 _GOOGLE_AVAILABLE = False
 _google_client = None
+_google_failed = False
 
 try:
     from google import genai
+    from google.genai import types
 
-    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    api_key_env = os.environ.get("GOOGLE_API_KEY", "")
+    api_key = [k.strip() for k in api_key_env.split(",") if k.strip()][0] if api_key_env else ""
     if api_key and api_key != "your-google-api-key-here":
         _google_client = genai.Client(api_key=api_key)
         _GOOGLE_AVAILABLE = True
-        print("[embeddings] Using Google text-embedding-004")
+        print(f"[embeddings] Using Google {GOOGLE_EMBEDDING_MODEL}")
     else:
         print("[embeddings] No GOOGLE_API_KEY set — using hash-based fallback embeddings")
 except ImportError:
@@ -41,19 +43,23 @@ except ImportError:
 
 def get_embedding_mode() -> str:
     """Return the active embedding mode for diagnostics."""
-    return "google" if _GOOGLE_AVAILABLE else "hash_fallback"
+    if _GOOGLE_AVAILABLE and not _google_failed:
+        return "google"
+    if _google_failed:
+        return "hash_fallback_after_google_error"
+    return "hash_fallback"
 
 
 def embed_text(text: str) -> list[float]:
     """Embed a single text string into a 768-dimensional vector."""
-    if _GOOGLE_AVAILABLE:
+    if _GOOGLE_AVAILABLE and not _google_failed:
         return _embed_google(text)
     return _embed_hash(text)
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
     """Embed multiple texts. Uses batch API when available."""
-    if _GOOGLE_AVAILABLE:
+    if _GOOGLE_AVAILABLE and not _google_failed:
         return _embed_google_batch(texts)
     return [_embed_hash(t) for t in texts]
 
@@ -61,11 +67,25 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 # ── Google embedding implementation ──────────────────────────────────────────
 
 def _embed_google(text: str) -> list[float]:
-    """Embed using Google's text-embedding-004 model."""
-    result = _google_client.models.embed_content(
-        model="text-embedding-004",
-        contents=text,
-    )
+    """Embed using Google's Gemini embedding model."""
+    global _google_failed
+
+    try:
+        result = _google_client.models.embed_content(
+            model=GOOGLE_EMBEDDING_MODEL,
+            contents=text,
+            config=types.EmbedContentConfig(
+                output_dimensionality=EMBEDDING_DIM,
+            ),
+        )
+    except Exception as exc:
+        _google_failed = True
+        print(
+            "[embeddings] Google embedding failed; "
+            f"falling back to hash-based embeddings: {exc}"
+        )
+        return _embed_hash(text)
+
     return list(result.embeddings[0].values)
 
 

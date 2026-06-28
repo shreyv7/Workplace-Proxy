@@ -46,3 +46,11 @@ MCP/**/token.json
 MCP/**/node_modules
 google-credentials.json
 *.db
+
+# Documentation and Notes (Keep on local system only)
+docs/
+*.md
+*.txt
+services.log
+*.lottie
+supabase/
