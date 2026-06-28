@@ -14,7 +14,7 @@ services:
         value: https://7d09d2f7-1130-4115-92ad-b04c3eb90897.us-east-1-1.aws.cloud.qdrant.io
       - key: QDRANT_API_KEY
         value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIiwic3ViamVjdCI6ImFwaS1rZXk6YjJjOGNhMjQtZWFmNC00ZTdhLTlhNDEtZjgxYjc1Njc1YjU2In0.qw7G__aYPg3ZbdrVTsm8MrTU8PXIIW_cEiA_5Ujuw50
-      - key: OPENAI_API_KEY
+      - key: GOOGLE_API_KEY
         sync: false
 
   # 2. Calendar MCP Server
@@ -57,12 +57,6 @@ services:
     envVars:
       - key: PORT
         value: 3000
-      - key: SLACK_CLIENT_ID
-        sync: false
-      - key: SLACK_CLIENT_SECRET
-        sync: false
-      - key: PUBLIC_SLACK_CALLBACK_URL
-        sync: false
 
   # 5. Multi-Agent Orchestrator
   - type: web
@@ -87,9 +81,9 @@ services:
         value: http://gmail-mcp:3001
       - key: MCP_SLACK_URL
         value: http://slack-mcp:3000
-      - key: OPENAI_API_KEY
+      - key: GOOGLE_API_KEY
         sync: false
       - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
+        value: https://xpihsdeapqxqexcqjvmw.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIiwic3ViamVjdCI6ImFwaS1rZXk6YjJjOGNhMjQtZWFmNC00ZTdhLTlhNDEtZjgxYjc1Njc1YjU2In0.qw7G__aYPg3ZbdrVTsm8MrTU8PXIIW_cEiA_5Ujuw50
