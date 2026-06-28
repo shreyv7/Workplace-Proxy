@@ -136,7 +136,7 @@ app.add_middleware(
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health_check():
     """Health check — Role 2 pings this to verify memory service is alive."""
     stats = get_collection_stats()

@@ -567,8 +567,9 @@ async def update_settings(
     )
 
 
-@router.get(
+@router.api_route(
     "/health",
+    methods=["GET", "HEAD"],
     response_model=HealthResponse,
     summary="Health check",
     description="Used by Role 1 to verify the Role 2 server is running before sending messages.",
