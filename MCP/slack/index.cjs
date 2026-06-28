@@ -3,7 +3,7 @@ const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 const { WebClient } = require("@slack/web-api");
-const { supabase } = require("../shared/supabase-client.cjs");
+const { supabase } = require("./supabase-client.cjs");
 
 const app = express();
 app.use(cors());
