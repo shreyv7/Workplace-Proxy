@@ -192,14 +192,13 @@ function DailyClarity() {
   return (
     <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-7xl flex-col px-6 py-8 relative">
       {isLoading ? (
-        <div className="flex-1 flex items-center justify-center p-6 border border-border/80 bg-card/65 backdrop-blur-md rounded-[2rem] shadow-xl relative overflow-hidden min-h-[500px] animate-scale-in select-none">
+        <div className="flex-1 flex items-center justify-center p-6 relative overflow-hidden min-h-[500px] animate-scale-in select-none">
           {/* Animated Neon Ambient Glows */}
           <div className="absolute -left-1/4 -top-1/4 w-96 h-96 rounded-full bg-mint/10 blur-[120px] animate-pulse" />
           <div className="absolute -right-1/4 -bottom-1/4 w-96 h-96 rounded-full bg-lavender/10 blur-[120px] animate-pulse" style={{ animationDelay: '1.5s' }} />
 
           <div className="relative z-10 flex w-full max-w-5xl flex-col items-center text-center">
-            <div className="relative flex w-full min-h-[420px] items-center justify-center rounded-[2rem] border border-border/50 bg-gradient-to-br from-background/75 via-card/75 to-secondary/20 px-6 py-8 shadow-[0_0_40px_rgba(var(--color-border),0.16)] overflow-hidden">
-              <div className="absolute inset-x-10 inset-y-8 rounded-[1.75rem] border border-border/40 bg-[radial-gradient(circle_at_top,rgba(28,244,194,0.06),transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))]" />
+            <div className="relative flex w-full min-h-[420px] items-center justify-center overflow-hidden">
               <div className="relative z-10 h-[min(76vw,560px)] w-[min(76vw,560px)]">
                 <DotLottieReact
                   src="https://lottie.host/af715c09-b2c4-4c13-a08d-782831435e21/AdNwcE8RRC.lottie"
