@@ -54,3 +54,7 @@ docs/
 services.log
 *.lottie
 supabase/
+
+# Vercel
+.vercel/
+
