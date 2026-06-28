@@ -6,7 +6,7 @@ services:
     dockerfilePath: Dockerfile
     dockerContext: backend
     plan: free
-    startCommand: python -m uvicorn memory_service.main:app --host 0.0.0.0 --port 8001
+    dockerCommand: python -m uvicorn memory_service.main:app --host 0.0.0.0 --port 8001
     envVars:
       - key: PORT
         value: 8001
@@ -15,7 +15,7 @@ services:
       - key: QDRANT_API_KEY
         value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIiwic3ViamVjdCI6ImFwaS1rZXk6YjJjOGNhMjQtZWFmNC00ZTdhLTlhNDEtZjgxYjc1Njc1YjU2In0.qw7G__aYPg3ZbdrVTsm8MrTU8PXIIW_cEiA_5Ujuw50
       - key: OPENAI_API_KEY
-        sync: true
+        sync: false
 
   # 2. Calendar MCP Server
   - type: web
@@ -28,9 +28,9 @@ services:
       - key: PORT
         value: 3002
       - key: GOOGLE_CLIENT_ID
-        sync: true
+        sync: false
       - key: GOOGLE_CLIENT_SECRET
-        sync: true
+        sync: false
 
   # 3. Gmail MCP Server
   - type: web
@@ -43,9 +43,9 @@ services:
       - key: PORT
         value: 3001
       - key: GOOGLE_CLIENT_ID
-        sync: true
+        sync: false
       - key: GOOGLE_CLIENT_SECRET
-        sync: true
+        sync: false
 
   # 4. Slack MCP Server
   - type: web
@@ -58,11 +58,11 @@ services:
       - key: PORT
         value: 3000
       - key: SLACK_CLIENT_ID
-        sync: true
+        sync: false
       - key: SLACK_CLIENT_SECRET
-        sync: true
+        sync: false
       - key: PUBLIC_SLACK_CALLBACK_URL
-        sync: true
+        sync: false
 
   # 5. Multi-Agent Orchestrator
   - type: web
@@ -71,7 +71,7 @@ services:
     dockerfilePath: Dockerfile
     dockerContext: backend
     plan: free
-    startCommand: python -m uvicorn orchestrator.main:app --host 0.0.0.0 --port 8000
+    dockerCommand: python -m uvicorn orchestrator.main:app --host 0.0.0.0 --port 8000
     envVars:
       - key: PORT
         value: 8000
@@ -88,31 +88,8 @@ services:
       - key: MCP_SLACK_URL
         value: http://slack-mcp:3000
       - key: OPENAI_API_KEY
-        sync: true
+        sync: false
       - key: SUPABASE_URL
-        sync: true
+        sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: true
-
-  # 6. Keep-Awake Cron Service (Pings all Free tier services internally every 10 minutes)
-  - type: cron
-    name: keep-awake-ping
-    env: node
-    plan: starter # Note: Render cron jobs require at least a Starter plan ($7/mo)
-    schedule: "*/10 * * * *"
-    buildCommand: "npm install node-fetch"
-    startCommand: "node -e \"
-      const fetch = require('node-fetch');
-      const urls = [
-        'http://orchestrator:8000/api/v1/health',
-        'http://memory-service:8001/api/v1/health',
-        'http://slack-mcp:3000/health',
-        'http://gmail-mcp:3001/health',
-        'http://calendar-mcp:3002/health'
-      ];
-      Promise.all(urls.map(url => 
-        fetch(url)
-          .then(res => console.log('Pinged:', url, res.status))
-          .catch(err => console.error('Failed:', url, err.message))
-      ));
-      \""
+        sync: false
